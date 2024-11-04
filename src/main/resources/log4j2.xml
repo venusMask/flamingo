@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="off" monitorInterval="120" name="ConfigTest">
+    <properties>
+        <property name="LOG_PARENT_PATH">/Users/dzh/software/java/projects/flamingo/logs</property>
+        <property name="LOG_FILE_NAME">flamingo</property>
+    </properties>
+    <Appenders>
+        <Console name="ConsoleAppender" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [thread:%t] %-5level %l - %msg%n"/>
+        </Console>
+        <RollingRandomAccessFile
+                name="RollingRandomAccessFileAppender"
+                fileName="${LOG_PARENT_PATH}/${LOG_FILE_NAME}.log"
+                filePattern="${LOG_PARENT_PATH}/$${date:yyyy-MM}/${LOG_FILE_NAME}-%d{yyyy-MM-dd}-%i.log">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} [thread:%t] %-5level %l - %msg%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1"/>
+                <SizeBasedTriggeringPolicy size="1 GB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="1000"/>
+        </RollingRandomAccessFile>
+    </Appenders>
+    <Loggers>
+        <Root level="INFO">
+            <AppenderRef ref="RollingRandomAccessFileAppender"/>
+            <AppenderRef ref="ConsoleAppender" />
+        </Root>
+    </Loggers>
+</Configuration>
