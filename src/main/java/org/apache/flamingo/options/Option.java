@@ -9,10 +9,10 @@ import lombok.Setter;
 @Builder
 public class Option {
 
-    private String key;
+	private String key;
 
-    private String value;
+	private String value;
 
-    private String doc;
+	private String doc;
 
 }

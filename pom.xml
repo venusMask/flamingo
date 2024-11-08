@@ -64,4 +64,14 @@
     </dependency>
   </dependencies>
 
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>io.spring.javaformat</groupId>
+        <artifactId>spring-javaformat-maven-plugin</artifactId>
+        <version>0.0.42</version>
+      </plugin>
+    </plugins>
+  </build>
+
 </project>

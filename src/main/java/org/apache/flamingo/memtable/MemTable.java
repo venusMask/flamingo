@@ -10,26 +10,26 @@ import org.apache.flamingo.wal.WALWriter;
  */
 public interface MemTable {
 
-    enum MemTableState {
+	enum MemTableState {
 
-        Active(1),
-        Dead(2)
-        ;
+		Active(1), Dead(2);
 
-        public final int state;
+		public final int state;
 
-        MemTableState(int state) {
-            this.state = state;
-        }
-    }
+		MemTableState(int state) {
+			this.state = state;
+		}
 
-    void add(byte[] key, byte[] value);
+	}
 
-    void delete(byte[] key);
+	void add(byte[] key, byte[] value);
 
-    byte[] search(byte[] key);
+	void delete(byte[] key);
 
-    Options getOptions();
+	byte[] search(byte[] key);
 
-    WALWriter getWalWriter();
+	Options getOptions();
+
+	WALWriter getWalWriter();
+
 }
