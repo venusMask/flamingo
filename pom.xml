@@ -17,9 +17,15 @@
     <log4j2.version>2.20.0</log4j2.version>
     <slf4j.version>2.0.7</slf4j.version>
     <lombok.version>1.18.30</lombok.version>
+    <jackson.version>2.17.2</jackson.version>
   </properties>
 
   <dependencies>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>

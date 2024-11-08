@@ -6,32 +6,32 @@ public class Options {
 
     private Options(){}
 
-    public static final Option PROJECT_NAME = Option.builder()
+    public static final Option ProjectName = Option.builder()
             .key("project_name")
-            .value("flamingo")
+            .value("Flamingo LSM")
             .doc("This project name.")
             .build();
 
-    public static final Option PROJECT_VERSION = Option.builder()
+    public static final Option ProjectVersion = Option.builder()
             .key("project_version")
             .value("0.1")
             .doc("project version")
             .build();
 
-    public static Option DATA_DIR = Option.builder()
+    public static Option DataDir = Option.builder()
             .key("data_dir")
             .value("data")
             .doc("data dir")
             .build();
 
-    public static Option MEM_SIZE = Option.builder()
-            .key("mem_table_size")
+    public static Option MemTableThresholdSize = Option.builder()
+            .key("mem_table_threshold_size")
             .value(String.valueOf(10))
             .doc("memTable size")
             .build();
 
     public static void setDataDir(String dataDir) {
-        DATA_DIR.setValue(dataDir);
+        DataDir.setValue(dataDir);
     }
 
     public static Options getInstance() {

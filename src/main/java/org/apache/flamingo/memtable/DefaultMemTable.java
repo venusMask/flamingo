@@ -1,7 +1,9 @@
 package org.apache.flamingo.memtable;
 
 import org.apache.flamingo.file.FileUtil;
+import org.apache.flamingo.lsm.FlamingoLSM;
 import org.apache.flamingo.options.Options;
+import org.apache.flamingo.sstable.SSTable;
 import org.apache.flamingo.wal.WALWriter;
 
 import java.io.FileInputStream;
@@ -10,6 +12,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 /**
@@ -29,7 +32,10 @@ public class DefaultMemTable implements AutoCloseable {
 
     private final Options options = Options.getInstance();
 
-    public DefaultMemTable() {
+    private final FlamingoLSM flamingoLSM;
+
+    public DefaultMemTable(FlamingoLSM flamingoLSM) {
+        this.flamingoLSM = flamingoLSM;
         memTable = new ConcurrentSkipListMap<>((o1, o2) -> {
             int minLen = Math.min(o1.length, o2.length);
             for (int i = 0; i < minLen; i++) {
@@ -40,7 +46,7 @@ public class DefaultMemTable implements AutoCloseable {
             }
             return Integer.compare(o1.length, o2.length);
         });
-        this.memTableSize = Integer.parseInt(Options.MEM_SIZE.getValue());
+        this.memTableSize = Integer.parseInt(Options.MemTableThresholdSize.getValue());
         this.walWriter = new WALWriter(this);
     }
 
@@ -61,39 +67,48 @@ public class DefaultMemTable implements AutoCloseable {
         return memTable.get(key);
     }
 
+    public void writeToSSTable() {
+        FileChannel fileChannel = null;
+        try {
+            String fileName = FileUtil.getSSTFilePath();
+            fileChannel = new FileOutputStream(fileName, true).getChannel();
+            for (Map.Entry<byte[], byte[]> entry : memTable.entrySet()) {
+                byte[] key = entry.getKey();
+                byte[] value = entry.getValue();
+                int kl = key.length;
+                int vl = value.length;
+                ByteBuffer byteBuffer = ByteBuffer.allocate(4 + 4 + kl + vl);
+                byteBuffer.putInt(kl);
+                byteBuffer.put(key);
+                byteBuffer.putInt(vl);
+                byteBuffer.put(value);
+                byteBuffer.flip();
+                try {
+                    fileChannel.write(byteBuffer);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            walWriter.delete();
+            SSTable ssTable = new SSTable(fileName, 0);
+            flamingoLSM.getSstMetadata().addFirstLevel(ssTable);
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        } finally {
+            if(fileChannel != null && fileChannel.isOpen()) {
+                try {
+                    fileChannel.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
     public void switchState() {
         state = MemTable.MemTableState.Dead;
         walWriter.changeState();
-        new Thread(() -> {
-            try {
-                String fileName = FileUtil.getSSTFilePath();
-                FileChannel fileChannel = new FileOutputStream(fileName, true).getChannel();
-                memTable.entrySet().forEach(entry -> {
-                    byte[] key = entry.getKey();
-                    byte[] value = entry.getValue();
-                    int kl = key.length;
-                    int vl = value.length;
-                    ByteBuffer byteBuffer = ByteBuffer.allocate(4 + 4 + kl + vl);
-                    byteBuffer.putInt(kl);
-                    byteBuffer.put(key);
-                    byteBuffer.putInt(vl);
-                    byteBuffer.put(value);
-                    byteBuffer.flip();
-                    try {
-                        fileChannel.write(byteBuffer);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-                walWriter.delete();
-            } catch (FileNotFoundException e) {
-                throw new RuntimeException(e);
-            }
-        }).start();
-    }
-
-    public ConcurrentSkipListMap<byte[], byte[]> getMemTable() {
-        return memTable;
+        writeToSSTable();
     }
 
     @Override
@@ -101,8 +116,8 @@ public class DefaultMemTable implements AutoCloseable {
         walWriter.close();
     }
 
-    public static DefaultMemTable restoreFromWAL(String walLogPath) {
-        DefaultMemTable restoreMemTable = new DefaultMemTable();
+    public static DefaultMemTable restoreFromWAL(FlamingoLSM lsm, String walLogPath) {
+        DefaultMemTable restoreMemTable = new DefaultMemTable(lsm);
         try {
             FileInputStream fileInputStream = new FileInputStream(walLogPath);
             FileChannel readChannel = fileInputStream.getChannel();

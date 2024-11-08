@@ -1,8 +1,13 @@
 package org.apache.flamingo.lsm;
 
+import lombok.Getter;
+import org.apache.flamingo.core.IDAssign;
+import org.apache.flamingo.file.FileUtil;
 import org.apache.flamingo.memtable.DefaultMemTable;
 import org.apache.flamingo.options.Options;
+import org.apache.flamingo.sstable.SSTMetadata;
 
+@Getter
 public class FlamingoLSM {
 
     private DefaultMemTable memTable;
@@ -11,14 +16,20 @@ public class FlamingoLSM {
 
     private final int memTableSize;
 
+    private final SSTMetadata sstMetadata;
+
     public FlamingoLSM() {
-        this.memTableSize = Integer.parseInt(Options.MEM_SIZE.getValue());
-        memTable = new DefaultMemTable();
+        this.memTableSize = Integer.parseInt(Options.MemTableThresholdSize.getValue());
+        memTable = new DefaultMemTable(this);
+        sstMetadata = new SSTMetadata();
         initMeta();
     }
 
     public void initMeta() {
-
+        String sstRegex = "sstable_(\\d+)\\.sst";
+        IDAssign.initSSTAssign(FileUtil.getMaxOrder(sstRegex));
+        String walRegex = "wal_active_(\\d+)\\.wal";
+        IDAssign.initWALAssign(FileUtil.getMaxOrder(walRegex));
     }
 
     /**
@@ -28,7 +39,7 @@ public class FlamingoLSM {
         memTable.add(key, value);
         if(memTable.size() > memTableSize) {
             memTable.switchState();
-            memTable = new DefaultMemTable();
+            memTable = new DefaultMemTable(this);
         }
         return true;
     }
@@ -41,5 +52,4 @@ public class FlamingoLSM {
     public byte[] search(byte[] key) {
         return memTable.search(key);
     }
-
 }

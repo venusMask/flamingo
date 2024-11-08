@@ -3,7 +3,7 @@ package org.apache.flamingo.core;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * ID分配器, 负责给ssTable和WalWriter分配数据
+ * ID assigner, responsible for assigning id to ssTable and WalWriter
  */
 public class IDAssign {
 
@@ -17,6 +17,14 @@ public class IDAssign {
 
     public static String getWALNextID() {
         return String.valueOf(WALAssign.getAndIncrement());
+    }
+
+    public static void initSSTAssign(int initValue) {
+        SSTAssign.set(initValue);
+    }
+
+    public static void initWALAssign(int initValue) {
+        WALAssign.set(initValue);
     }
 
 }

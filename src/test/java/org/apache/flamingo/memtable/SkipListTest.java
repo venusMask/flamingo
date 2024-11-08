@@ -2,6 +2,7 @@ package org.apache.flamingo.memtable;
 
 import junit.framework.TestCase;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.flamingo.lsm.FlamingoLSM;
 
 import java.io.FileInputStream;
 import java.nio.ByteBuffer;
@@ -20,6 +21,8 @@ import static org.apache.flamingo.memtable.DefaultMemTable.readByteBuffer;
  * @Version 1.0
  */
 public class SkipListTest extends TestCase {
+
+    public FlamingoLSM lsm = new FlamingoLSM();
 
     public byte[] fromString(String value) {
         return value.getBytes(StandardCharsets.UTF_8);
@@ -49,7 +52,7 @@ public class SkipListTest extends TestCase {
     }
 
     public void testDefaultSkipList() {
-        DefaultMemTable defaultSkipList = new DefaultMemTable();
+        DefaultMemTable defaultSkipList = new DefaultMemTable(lsm);
         defaultSkipList.add(fromString("a"), fromString("a"));
         defaultSkipList.add(fromString("b"), fromString("b"));
         defaultSkipList.add(fromString("c"), fromString("c"));
@@ -66,7 +69,7 @@ public class SkipListTest extends TestCase {
     }
 
     public void testDefaultSkipListRate() {
-        try (DefaultMemTable memTable = new DefaultMemTable();) {
+        try (DefaultMemTable memTable = new DefaultMemTable(lsm)) {
             long time4 = testDataLen(memTable, 100000);
             System.out.println(time4);
         } catch (Exception e) {
