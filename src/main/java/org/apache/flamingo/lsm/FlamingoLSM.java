@@ -3,11 +3,11 @@ package org.apache.flamingo.lsm;
 import lombok.Getter;
 import org.apache.flamingo.core.IDAssign;
 import org.apache.flamingo.file.FileUtil;
-import org.apache.flamingo.memtable.DefaultMemTable;
+import org.apache.flamingo.memtable.MemoryTable;
 import org.apache.flamingo.options.Options;
 import org.apache.flamingo.sstable.SSTMetadata;
 import org.apache.flamingo.sstable.SSTable;
-import org.apache.flamingo.task.MemTableTask;
+import org.apache.flamingo.task.MemoryTableTask;
 import org.apache.flamingo.task.TaskManager;
 import org.apache.flamingo.wal.WALWriter;
 
@@ -20,24 +20,24 @@ import java.util.stream.Stream;
 @Getter
 public class FlamingoLSM implements AutoCloseable {
 
-    private final int memTableSize;
+    private final int memoryTableThresholdSize;
 
-	private DefaultMemTable memTable;
+	private MemoryTable memoryTable;
 
 	private final SSTMetadata sstMetadata;
 
 	private final TaskManager taskManager;
 
 	public FlamingoLSM() {
-		this.memTableSize = Integer.parseInt(Options.MemTableThresholdSize.getValue());
+		this.memoryTableThresholdSize = Integer.parseInt(Options.MemoryTableThresholdSize.getValue());
 		this.taskManager = new TaskManager();
 		this.sstMetadata = new SSTMetadata();
 		initMeta();
-		taskManager.start();
 		restoreFromWAL();
-		if(this.memTable == null) {
-			this.memTable = new DefaultMemTable(this);
+		if(this.memoryTable == null) {
+			this.memoryTable = new MemoryTable(this);
 		}
+		taskManager.start();
 	}
 
 	public void initMeta() {
@@ -51,22 +51,22 @@ public class FlamingoLSM implements AutoCloseable {
 	 * MemTable的大小超过阈值的时候将当前memTable设置为不可变对象, 然后新构建一个MemTable接受新的请求.
 	 */
 	public boolean add(byte[] key, byte[] value) {
-		memTable.add(key, value);
-		if (memTable.size() > memTableSize) {
-			MemTableTask task = new MemTableTask(memTable);
+		memoryTable.add(key, value);
+		if (memoryTable.size() > memoryTableThresholdSize) {
+			MemoryTableTask task = new MemoryTableTask(memoryTable);
 			taskManager.addTask(task);
-			memTable = new DefaultMemTable(this);
+			memoryTable = new MemoryTable(this);
 		}
 		return true;
 	}
 
 	public boolean delete(byte[] key) {
-		memTable.delete(key);
+		memoryTable.delete(key);
 		return true;
 	}
 
 	public byte[] search(byte[] key) {
-		return memTable.search(key);
+		return memoryTable.search(key);
 	}
 
 	/**
@@ -98,7 +98,8 @@ public class FlamingoLSM implements AutoCloseable {
 			sp.filter(path -> Files.isRegularFile(path) && path.getFileName().toString().startsWith(WALWriter.ACTIVE))
 				.findFirst()
 				.ifPresent(path -> {
-					memTable = DefaultMemTable.restoreFromWAL(this, path.getFileName().toString());
+					String fileName = path.getFileName().toString();
+					memoryTable = MemoryTable.restoreFromWAL(this, FileUtil.getDataDirFilePath(fileName));
 				});
 		}
 		catch (IOException e) {
@@ -107,13 +108,14 @@ public class FlamingoLSM implements AutoCloseable {
 	}
 
 	private void restoreSilenceFile(Path path) {
-		DefaultMemTable silenceMemTable = DefaultMemTable.restoreFromWAL(this, path.getFileName().toString());
-		MemTableTask task = new MemTableTask(silenceMemTable);
+		String silenceFileName = path.getFileName().toString();
+		MemoryTable silenceMemTable = MemoryTable.restoreFromWAL(this, FileUtil.getDataDirFilePath(silenceFileName));
+		MemoryTableTask task = new MemoryTableTask(silenceMemTable);
 		taskManager.addTask(task);
 	}
 
     @Override
     public void close() throws Exception {
-        memTable.close();
+        memoryTable.close();
     }
 }

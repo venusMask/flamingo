@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 
-import static org.apache.flamingo.memtable.DefaultMemTable.readByteBuffer;
+import static org.apache.flamingo.memtable.MemoryTable.readByteBuffer;
 
 /**
  * @Author venus
@@ -41,7 +41,7 @@ public class SkipListTest extends TestCase {
 
 	}
 
-	public long testDataLen(DefaultMemTable skipList, int len) {
+	public long testDataLen(MemoryTable skipList, int len) {
 		ArrayList<byte[]> keyList = testData(len);
 		ArrayList<byte[]> valueList = testData(len);
 		long start = System.currentTimeMillis();
@@ -52,7 +52,7 @@ public class SkipListTest extends TestCase {
 	}
 
 	public void testDefaultSkipList() {
-		DefaultMemTable defaultSkipList = new DefaultMemTable(lsm);
+		MemoryTable defaultSkipList = new MemoryTable(lsm);
 		defaultSkipList.add(fromString("a"), fromString("a"));
 		defaultSkipList.add(fromString("b"), fromString("b"));
 		defaultSkipList.add(fromString("c"), fromString("c"));
@@ -69,7 +69,7 @@ public class SkipListTest extends TestCase {
 	}
 
 	public void testDefaultSkipListRate() {
-		try (DefaultMemTable memTable = new DefaultMemTable(lsm)) {
+		try (MemoryTable memTable = new MemoryTable(lsm)) {
 			long time4 = testDataLen(memTable, 100000);
 			System.out.println(time4);
 		}

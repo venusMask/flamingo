@@ -1,2 +1,4 @@
-# flamingo
-LSM Tree
+# Flamingo
+LSM Tree <p>
+性能测试
+1. threshold: 10000, batch size: 12000 -> 371ms

@@ -9,15 +9,17 @@ public class FlamingoLSMTest extends TestCase {
 
 	public void testFlamingoLSM() throws Exception {
 		try (FlamingoLSM flamingoLSM = new FlamingoLSM()) {
-			int len = 23;
+			int len = 12000;
 			ArrayList<byte[]> keyList = SkipListTest.testData(len);
 			ArrayList<byte[]> valueList = SkipListTest.testData(len);
+			long start = System.currentTimeMillis();
 			for (int i = 0; i < len; i++) {
 				byte[] key = keyList.get(i);
 				byte[] value = valueList.get(i);
-				System.out.println(new String(key) + " <-> " + new String(value));
 				flamingoLSM.add(key, value);
 			}
+			long end = System.currentTimeMillis();
+			System.out.println(end - start);
 		}
 	}
 

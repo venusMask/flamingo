@@ -4,9 +4,8 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.core.IDAssign;
 import org.apache.flamingo.file.FileUtil;
-import org.apache.flamingo.memtable.DefaultMemTable;
+import org.apache.flamingo.memtable.MemoryTable;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -22,7 +21,7 @@ public class WALWriter {
 
 	public static final String SILENCE = "wal_silence_";
 
-	private final DefaultMemTable memTable;
+	private final MemoryTable memTable;
 
 	private final FileChannel writeChannel;
 
@@ -34,8 +33,7 @@ public class WALWriter {
 
 	private final String walSilenceFullPath;
 
-	public WALWriter(DefaultMemTable memTable) {
-		log.info("Initializing WAL Writer");
+	public WALWriter(MemoryTable memTable) {
 		this.memTable = memTable;
 		this.walActiveID = getActiveID();
 		this.walSilenceID = getSilenceID(walActiveID);
@@ -84,7 +82,6 @@ public class WALWriter {
 	}
 
 	public void delete() {
-		log.info("Deleting Silence WAL file {}", walSilenceFullPath);
 		boolean deleteFlag = FileUtil.deleteDataDirFile(walSilenceID);
 		if (!deleteFlag) {
 			throw new RuntimeException("Failed to delete WAL file " + walSilenceFullPath);
@@ -94,7 +91,6 @@ public class WALWriter {
 	public void changeState() {
 		try {
 			writeChannel.close();
-			log.info("Changing WAL file from {} to {}", walActiveFullPath, walSilenceFullPath);
 			boolean flag = FileUtil.renameDataDirFile(walActiveID, walSilenceID);
 			if (!flag) {
 				throw new RuntimeException("Failed to rename WAL file " + walActiveFullPath);

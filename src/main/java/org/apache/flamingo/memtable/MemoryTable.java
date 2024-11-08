@@ -6,6 +6,8 @@ import org.apache.flamingo.lsm.FlamingoLSM;
 import org.apache.flamingo.options.Options;
 import org.apache.flamingo.sstable.SSTable;
 import org.apache.flamingo.wal.WALWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -22,11 +24,12 @@ import java.util.concurrent.ConcurrentSkipListMap;
  * @Version 1.0
  */
 @Getter
-public class DefaultMemTable implements AutoCloseable {
+public class MemoryTable implements AutoCloseable {
 
+	private static final Logger log = LoggerFactory.getLogger(MemoryTable.class);
 	private final ConcurrentSkipListMap<byte[], byte[]> memTable;
 
-	private MemTable.MemTableState state = MemTable.MemTableState.Active;
+	private MemoryTableState state = MemoryTableState.Active;
 
 	private final int memTableSize;
 
@@ -36,7 +39,7 @@ public class DefaultMemTable implements AutoCloseable {
 
 	private final FlamingoLSM flamingoLSM;
 
-	public DefaultMemTable(FlamingoLSM flamingoLSM) {
+	public MemoryTable(FlamingoLSM flamingoLSM) {
 		this.flamingoLSM = flamingoLSM;
 		memTable = new ConcurrentSkipListMap<>((o1, o2) -> {
 			int minLen = Math.min(o1.length, o2.length);
@@ -48,7 +51,7 @@ public class DefaultMemTable implements AutoCloseable {
 			}
 			return Integer.compare(o1.length, o2.length);
 		});
-		this.memTableSize = Integer.parseInt(Options.MemTableThresholdSize.getValue());
+		this.memTableSize = Integer.parseInt(Options.MemoryTableThresholdSize.getValue());
 		this.walWriter = new WALWriter(this);
 	}
 
@@ -70,7 +73,7 @@ public class DefaultMemTable implements AutoCloseable {
 	}
 
 	public void writeToSSTable() {
-		state = MemTable.MemTableState.Dead;
+		state = MemoryTableState.Immutable;
 		walWriter.changeState();
 		FileChannel fileChannel = null;
 		try {
@@ -118,8 +121,9 @@ public class DefaultMemTable implements AutoCloseable {
 		walWriter.close();
 	}
 
-	public static DefaultMemTable restoreFromWAL(FlamingoLSM lsm, String walLogPath) {
-		DefaultMemTable restoreMemTable = new DefaultMemTable(lsm);
+	public static MemoryTable restoreFromWAL(FlamingoLSM lsm, String walLogPath) {
+		log.info("Restoring memory table from wal file {}", walLogPath);
+		MemoryTable restoreMemTable = new MemoryTable(lsm);
 		try {
 			FileInputStream fileInputStream = new FileInputStream(walLogPath);
 			FileChannel readChannel = fileInputStream.getChannel();
@@ -151,6 +155,18 @@ public class DefaultMemTable implements AutoCloseable {
 		}
 		catch (Exception e) {
 			return null;
+		}
+	}
+
+	public enum MemoryTableState {
+
+		Active(1),
+		Immutable(2);
+
+		public final int state;
+
+		MemoryTableState(int state) {
+			this.state = state;
 		}
 	}
 

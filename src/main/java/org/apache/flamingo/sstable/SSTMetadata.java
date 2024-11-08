@@ -1,5 +1,6 @@
 package org.apache.flamingo.sstable;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.file.FileUtil;
 
 import java.io.*;
@@ -10,6 +11,7 @@ import java.util.*;
 /**
  * Store SSTable MetaInfo.
  */
+@Slf4j
 public class SSTMetadata {
 
 	private final Map<Integer, List<SSTable>> metaData = new HashMap<>();
@@ -28,6 +30,7 @@ public class SSTMetadata {
 	}
 
 	private void flushMetadata() {
+		log.debug("Flushing metadata");
 		try {
 			FileOutputStream outputStream = new FileOutputStream(metaFilePath);
 			metaData.values().forEach(list -> list.forEach(ssTable -> {

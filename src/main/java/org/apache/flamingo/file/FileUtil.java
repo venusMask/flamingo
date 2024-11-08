@@ -3,6 +3,8 @@ package org.apache.flamingo.file;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.core.IDAssign;
 import org.apache.flamingo.options.Options;
+import org.apache.flamingo.sstable.SSTable;
+import org.apache.flamingo.wal.WALWriter;
 
 import java.io.File;
 import java.io.IOException;
@@ -17,11 +19,11 @@ import java.util.regex.Pattern;
 public class FileUtil {
 
 	public static String getSSTFilePath() {
-		return Options.DataDir.getValue() + File.separator + "sstable_" + IDAssign.getSSTNextID() + ".sst";
+		return Options.DataDir.getValue() + File.separator + SSTable.SSTABLE + IDAssign.getSSTNextID() + ".sst";
 	}
 
 	public static String getWalActiveName() {
-		return "wal_active_" + IDAssign.getWALNextID() + ".wal";
+		return WALWriter.ACTIVE + IDAssign.getWALNextID() + ".wal";
 	}
 
 	public static String getMetaInfoPath() {
