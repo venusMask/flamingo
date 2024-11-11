@@ -3,6 +3,7 @@
     <properties>
         <property name="LOG_PARENT_PATH">/Users/dzh/software/java/projects/flamingo/logs</property>
         <property name="LOG_FILE_NAME">flamingo</property>
+        <property name="level">DEBUG</property>
     </properties>
     <Appenders>
         <Console name="ConsoleAppender" target="SYSTEM_OUT">
@@ -19,10 +20,16 @@
             </Policies>
             <DefaultRolloverStrategy max="1000"/>
         </RollingRandomAccessFile>
+<!--        <Async name="AsyncAppender">-->
+<!--            <AppenderRef ref="RollingRandomAccessFileAppender" level="${level}"/>-->
+<!--            <AppenderRef ref="ConsoleAppender" level="${level}"/>-->
+<!--        </Async>-->
     </Appenders>
     <Loggers>
-        <Root level="DEBUG">
-            <AppenderRef ref="RollingRandomAccessFileAppender"/>
+<!--        <Logger name="org.apache.flamingo" level="${level}" additivity="false">-->
+<!--            <AppenderRef ref="AsyncAppender"/>-->
+<!--        </Logger>-->
+        <Root level="${level}">
             <AppenderRef ref="ConsoleAppender" />
         </Root>
     </Loggers>

@@ -20,7 +20,7 @@ import java.util.stream.Stream;
 @Getter
 public class FlamingoLSM implements AutoCloseable {
 
-    private final int memoryTableThresholdSize;
+	private final int memoryTableThresholdSize;
 
 	private MemoryTable memoryTable;
 
@@ -34,7 +34,7 @@ public class FlamingoLSM implements AutoCloseable {
 		this.sstMetadata = new SSTMetadata();
 		initMeta();
 		restoreFromWAL();
-		if(this.memoryTable == null) {
+		if (this.memoryTable == null) {
 			this.memoryTable = new MemoryTable(this);
 		}
 		taskManager.start();
@@ -114,8 +114,9 @@ public class FlamingoLSM implements AutoCloseable {
 		taskManager.addTask(task);
 	}
 
-    @Override
-    public void close() throws Exception {
-        memoryTable.close();
-    }
+	@Override
+	public void close() throws Exception {
+		memoryTable.close();
+	}
+
 }

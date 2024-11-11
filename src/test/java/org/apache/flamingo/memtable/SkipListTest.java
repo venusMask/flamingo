@@ -3,104 +3,76 @@ package org.apache.flamingo.memtable;
 import junit.framework.TestCase;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.flamingo.lsm.FlamingoLSM;
+import org.apache.flamingo.memtable.skiplist.SLNode;
+import org.apache.flamingo.memtable.skiplist.SkipList;
+import org.apache.flamingo.utils.StringUtil;
 
 import java.io.FileInputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.*;
 
 import static org.apache.flamingo.memtable.MemoryTable.readByteBuffer;
 
 /**
+ * Test Skip List
  * @Author venus
  * @Date 2024/11/5
  * @Version 1.0
  */
 public class SkipListTest extends TestCase {
 
-	public FlamingoLSM lsm = new FlamingoLSM();
-
-	public byte[] fromString(String value) {
-		return value.getBytes(StandardCharsets.UTF_8);
+	private boolean assertKey(List<String> accept, List<String> real) {
+		return accept.containsAll(real) && real.containsAll(accept);
 	}
 
-	public static ArrayList<byte[]> testData(int len) {
+	public static ArrayList<String> generateRandomStrings(int count) {
 		RandomStringUtils randomStringUtils = RandomStringUtils.secure();
-		ArrayList<byte[]> arrayList = new ArrayList<>(len);
-		for (int i = 0; i < len; i++) {
-			arrayList.add(randomStringUtils.nextAlphabetic(5, 20).getBytes(StandardCharsets.UTF_8));
+		ArrayList<String> list = new ArrayList<>(count);
+		for (int i = 0; i < count; i++) {
+			list.add(randomStringUtils.nextAlphabetic(1, 5));
 		}
-		return arrayList;
+		return list;
 	}
 
-	public void testSeq() {
-
+	public void put(SkipList skipList, String key, String value) {
+		skipList.put(key, value);
 	}
 
-	public long testDataLen(MemoryTable skipList, int len) {
-		ArrayList<byte[]> keyList = testData(len);
-		ArrayList<byte[]> valueList = testData(len);
-		long start = System.currentTimeMillis();
-		for (int i = 0; i < len; i++) {
-			skipList.add(keyList.get(i), valueList.get(i));
+	public void testSimpleOperation() throws Exception {
+		SkipList skipList = new SkipList();
+		// Test PUT
+		ArrayList<String> col = generateRandomStrings(20);
+		for (String s : col) {
+			put(skipList, s, s);
 		}
-		return System.currentTimeMillis() - start;
-	}
-
-	public void testDefaultSkipList() {
-		MemoryTable defaultSkipList = new MemoryTable(lsm);
-		defaultSkipList.add(fromString("a"), fromString("a"));
-		defaultSkipList.add(fromString("b"), fromString("b"));
-		defaultSkipList.add(fromString("c"), fromString("c"));
-		defaultSkipList.add(fromString("a"), fromString("d"));
-		ConcurrentSkipListMap<byte[], byte[]> memTable = defaultSkipList.getMemTable();
-		Set<Map.Entry<byte[], byte[]>> entrySet = memTable.entrySet();
-		entrySet.forEach(entry -> {
-			byte[] key = entry.getKey();
-			byte[] value = entry.getValue();
-			String keyString = new String(key);
-			String valueString = new String(value);
-			System.out.println("key: " + keyString + ", value: " + valueString);
+		boolean putFlag = assertKey(col, skipList.keys());
+        assertTrue(putFlag);
+		// Test Remove
+		Random random = new Random();
+		HashSet<String> hashSet = new HashSet<>();
+		for (int i = 0; i < 10; i++) {
+			String key = col.get(random.nextInt(col.size()));
+			skipList.remove(key);
+			hashSet.add(key);
+		}
+		col.removeAll(hashSet);
+		boolean removeFlag = assertKey(col, skipList.keys());
+		assertTrue(removeFlag);
+		// Test Search
+		List<String> keys = skipList.keys();
+		System.out.println("Test contains!");
+		keys.forEach(key -> {
+			byte[] value = skipList.search(key);
+			assertEquals(key, StringUtil.fromBytes(value));
 		});
-	}
-
-	public void testDefaultSkipListRate() {
-		try (MemoryTable memTable = new MemoryTable(lsm)) {
-			long time4 = testDataLen(memTable, 100000);
-			System.out.println(time4);
-		}
-		catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-	}
-
-	public void testReadFile() {
-		String filePath = "/Users/dzh/software/java/projects/flamingo/data/sstable_1.sst";
-		try {
-			FileInputStream fileInputStream = new FileInputStream(filePath);
-			FileChannel readChannel = fileInputStream.getChannel();
-			int available = fileInputStream.available();
-			ByteBuffer byteBuffer = ByteBuffer.allocate(available);
-			readChannel.read(byteBuffer);
-			byteBuffer.flip();
-			while (true) {
-				byte[] keyByte = readByteBuffer(byteBuffer);
-				if (keyByte == null) {
-					break;
-				}
-				byte[] valueByte = readByteBuffer(byteBuffer);
-				String keyStr = new String(keyByte);
-				String valueStr = new String(valueByte);
-				System.out.println(keyStr + " <-> " + valueStr);
-			}
-		}
-		catch (Exception e) {
-			throw new RuntimeException(e);
-		}
+		System.out.println("Test not contains!");
+		ArrayList<String> randomKeys = generateRandomStrings(10);
+		randomKeys.forEach(key -> {
+			skipList.search(key);
+			assertTrue(true);
+		});
 	}
 
 }

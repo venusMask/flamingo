@@ -40,11 +40,13 @@ public class TaskManager {
 					task.executeTask();
 				}
 				catch (InterruptedException e) {
+					log.debug("Interruption occurred while executing tasks.", e);
 					Thread.currentThread().interrupt();
 					if (stop) {
 						break;
 					}
 				}
+				log.debug("Execute end of tasks");
 			}
 		}).start();
 	}

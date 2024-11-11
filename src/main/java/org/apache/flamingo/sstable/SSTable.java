@@ -12,7 +12,7 @@ import java.nio.charset.StandardCharsets;
 @Getter
 public class SSTable {
 
-    public static final String SSTABLE = "sstable_";
+	public static final String SSTABLE = "sstable_";
 
 	private final String filePath;
 
