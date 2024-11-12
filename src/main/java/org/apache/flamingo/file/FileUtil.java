@@ -3,7 +3,7 @@ package org.apache.flamingo.file;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.core.IDAssign;
 import org.apache.flamingo.options.Options;
-import org.apache.flamingo.sstable.SSTable;
+import org.apache.flamingo.sstable.SSTableInfo;
 import org.apache.flamingo.wal.WALWriter;
 
 import java.io.File;
@@ -18,8 +18,8 @@ import java.util.regex.Pattern;
 @Slf4j
 public class FileUtil {
 
-	public static String getSSTFilePath() {
-		return Options.DataDir.getValue() + File.separator + SSTable.SSTABLE + IDAssign.getSSTNextID() + ".sst";
+	public static String getSSTFileName() {
+		return Options.DataDir.getValue() + File.separator + SSTableInfo.SSTABLE + IDAssign.getSSTNextID() + ".sst";
 	}
 
 	public static String getWalActiveName() {
@@ -76,6 +76,26 @@ public class FileUtil {
 
 	public static int getMaxOrder(String regex) {
 		return getMaxOrder(getDataDirPath(), regex);
+	}
+
+	public static void checkFileExists(String file, boolean throwException) {
+		Path path = Paths.get(file);
+		if (!Files.exists(path) && throwException) {
+			throw new RuntimeException(file + " does not exist");
+		}
+	}
+
+	public static void checkFileExistsOrCreate(String file) {
+		Path path = Paths.get(file);
+		if (!Files.exists(path)) {
+			try {
+				Files.createDirectories(path.getParent());
+				Files.createFile(path);
+			}
+			catch (IOException e) {
+				throw new RuntimeException("Could not create directory or file: " + path, e);
+			}
+		}
 	}
 
 }

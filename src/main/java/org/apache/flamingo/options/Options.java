@@ -23,8 +23,14 @@ public class Options {
 
 	public static Option MemoryTableThresholdSize = Option.builder()
 		.key("memory_table_threshold_size")
-		.value(String.valueOf(10000))
+		.value(String.valueOf(100002))
 		.doc("memTable size")
+		.build();
+
+	public static Option SSTableMaxSize = Option.builder()
+		.key("sstable_max_size")
+		.value(String.valueOf(1000))
+		.doc("SSTable max size of file")
 		.build();
 
 	public static void setDataDir(String dataDir) {

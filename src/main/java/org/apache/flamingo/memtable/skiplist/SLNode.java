@@ -40,11 +40,13 @@ public class SLNode {
 	public String toString() {
 		String keyString = new String(key, StandardCharsets.UTF_8);
 		String valueString;
-		if(value == null) {
+		if (value == null) {
 			valueString = "";
-		} else {
+		}
+		else {
 			valueString = new String(value, StandardCharsets.UTF_8);
 		}
 		return "SLNode{key=" + keyString + ", value=" + valueString + "}";
 	}
+
 }

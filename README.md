@@ -5,3 +5,4 @@ LSM Tree <p>
 
 
 ## 二：Compact[Feature]
+1: 合并第一层的SSTable

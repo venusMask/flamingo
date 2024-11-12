@@ -5,8 +5,8 @@ import org.apache.flamingo.core.IDAssign;
 import org.apache.flamingo.file.FileUtil;
 import org.apache.flamingo.memtable.MemoryTable;
 import org.apache.flamingo.options.Options;
-import org.apache.flamingo.sstable.SSTMetadata;
-import org.apache.flamingo.sstable.SSTable;
+import org.apache.flamingo.sstable.SSTMetaInfo;
+import org.apache.flamingo.sstable.SSTableInfo;
 import org.apache.flamingo.task.MemoryTableTask;
 import org.apache.flamingo.task.TaskManager;
 import org.apache.flamingo.wal.WALWriter;
@@ -24,14 +24,14 @@ public class FlamingoLSM implements AutoCloseable {
 
 	private MemoryTable memoryTable;
 
-	private final SSTMetadata sstMetadata;
+	private final SSTMetaInfo sstMetadata;
 
 	private final TaskManager taskManager;
 
 	public FlamingoLSM() {
 		this.memoryTableThresholdSize = Integer.parseInt(Options.MemoryTableThresholdSize.getValue());
 		this.taskManager = new TaskManager();
-		this.sstMetadata = new SSTMetadata();
+		this.sstMetadata = new SSTMetaInfo();
 		initMeta();
 		restoreFromWAL();
 		if (this.memoryTable == null) {
@@ -41,7 +41,7 @@ public class FlamingoLSM implements AutoCloseable {
 	}
 
 	public void initMeta() {
-		String sstRegex = SSTable.SSTABLE + "(\\d+)\\.sst";
+		String sstRegex = SSTableInfo.SSTABLE + "(\\d+)\\.sst";
 		IDAssign.initSSTAssign(FileUtil.getMaxOrder(sstRegex));
 		String walRegex = WALWriter.ACTIVE + "(\\d+)\\.wal";
 		IDAssign.initWALAssign(FileUtil.getMaxOrder(walRegex));
@@ -99,7 +99,7 @@ public class FlamingoLSM implements AutoCloseable {
 				.findFirst()
 				.ifPresent(path -> {
 					String fileName = path.getFileName().toString();
-					memoryTable = MemoryTable.restoreFromWAL(this, FileUtil.getDataDirFilePath(fileName));
+					memoryTable = MemoryTable.buildFromWAL(this, FileUtil.getDataDirFilePath(fileName));
 				});
 		}
 		catch (IOException e) {
@@ -109,13 +109,20 @@ public class FlamingoLSM implements AutoCloseable {
 
 	private void restoreSilenceFile(Path path) {
 		String silenceFileName = path.getFileName().toString();
-		MemoryTable silenceMemTable = MemoryTable.restoreFromWAL(this, FileUtil.getDataDirFilePath(silenceFileName));
+		MemoryTable silenceMemTable = MemoryTable.buildFromWAL(this, FileUtil.getDataDirFilePath(silenceFileName));
 		MemoryTableTask task = new MemoryTableTask(silenceMemTable);
 		taskManager.addTask(task);
 	}
 
+	public void flush() {
+		MemoryTableTask task = new MemoryTableTask(memoryTable);
+		taskManager.addTask(task);
+		memoryTable = new MemoryTable(this);
+	}
+
 	@Override
 	public void close() throws Exception {
+		flush();
 		memoryTable.close();
 	}
 

@@ -21,7 +21,7 @@ public class MemoryTableTask implements Task {
 
 	@Override
 	public void execute() {
-		memoryTable.writeToSSTable();
+		memoryTable.flush();
 	}
 
 	@Override
