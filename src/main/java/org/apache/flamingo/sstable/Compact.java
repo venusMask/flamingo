@@ -15,17 +15,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 
-/**
- * 实现SSTable的合并
- *
- * @Author venus
- * @Date 2024/11/11
- * @Version 1.0
- */
 @Slf4j
 public class Compact {
-
-	private static final int MAX_ENTRIES_PER_FILE = Integer.parseInt(Options.SSTableMaxSize.getValue());
 
 	private final LSMContext context = LSMContext.getInstance();
 
@@ -49,19 +40,18 @@ public class Compact {
 	}
 
 	/**
-	 * <a href="https://en.wikipedia.org/wiki/Merge_sort">归并排序</a>
-	 * <p>
-	 * Use merge sort to merge the data in newSSTable and oldSSTable. Note that the data
-	 * in newSSTable and oldSSTable is already sorted!!! If there are duplicate keys, use
-	 * the one in newSSTable to overwrite the one in oldSSTable
+	 * <a href="https://en.wikipedia.org/wiki/Merge_sort">File Merge Sort</a>
+	 * @param newSSTables New data. May be empty, but not be null! When duplicate keys
+	 * appear during the merging process, the new data takes effect
+	 * @param oldSSTables Old data. May be empty, but not be null!
 	 */
 	public void levelCompact(List<SSTableInfo> newSSTables, List<SSTableInfo> oldSSTables) {
-		int targetLevel = newSSTables.get(0).getLevel();
+		final int maxEntriesPerFile = Integer.parseInt(Options.SSTableMaxSize.getValue());
+		final int targetLevel = newSSTables.get(0).getLevel();
 		List<DataInputStream> newReaders = createReaders(newSSTables);
 		List<DataInputStream> oldReaders = createReaders(oldSSTables);
 		PriorityQueue<Entry> queue = new PriorityQueue<>(
 				(o1, o2) -> StringUtil.compareByteArrays(o1.getKey(), o2.getKey()));
-		// Load from newSSTables first (higher priority)
 		loadInitialEntries(queue, newReaders, true);
 		loadInitialEntries(queue, oldReaders, false);
 		String targetFileName = FileUtil.getSSTFileName();
@@ -75,7 +65,8 @@ public class Compact {
 					writer.write(entry.toBytes());
 					entryCount++;
 					lastKey = entry.key;
-					if (entryCount >= MAX_ENTRIES_PER_FILE) {
+					if (entryCount >= maxEntriesPerFile) {
+						writer.flush();
 						writer.close();
 						addMetaInfo(targetFileName, targetLevel);
 						targetFileName = FileUtil.getSSTFileName();
@@ -90,12 +81,22 @@ public class Compact {
 					entry.close();
 				}
 			}
+			writer.flush();
 			writer.close();
-			addMetaInfo(targetFileName, targetLevel);
 		}
 		catch (IOException e) {
 			throw new RuntimeException(e);
 		}
+		addMetaInfo(targetFileName, targetLevel);
+		removeDeleteInfo(newSSTables);
+		removeDeleteInfo(oldSSTables);
+	}
+
+	private void removeDeleteInfo(List<SSTableInfo> tables) {
+		int level = tables.get(0).getLevel();
+		List<SSTableInfo> collections = metaInfo.getLevel(level);
+		collections.removeAll(tables);
+		tables.forEach(SSTableInfo::delete);
 	}
 
 	private void addMetaInfo(String fileName, int level) {
@@ -152,12 +153,18 @@ public class Compact {
 			this.reader = reader;
 			this.fromNewSSTable = fromNewSSTable;
 			try {
-				int kl = reader.readInt();
-				this.key = new byte[kl];
-				reader.readFully(this.key);
-				int vl = reader.readInt();
-				this.value = new byte[vl];
-				reader.readFully(this.value);
+				if (reader != null && reader.available() > 0) {
+					int kl = reader.readInt();
+					this.key = new byte[kl];
+					reader.readFully(this.key);
+					int vl = reader.readInt();
+					this.value = new byte[vl];
+					reader.readFully(this.value);
+				}
+				else {
+					this.key = null;
+					this.value = null;
+				}
 			}
 			catch (IOException e) {
 				throw new RuntimeException(e);
@@ -166,7 +173,7 @@ public class Compact {
 
 		public boolean hasRemaining() {
 			try {
-				return reader.available() > 0;
+				return reader != null && reader.available() > 0;
 			}
 			catch (IOException e) {
 				throw new RuntimeException(e);

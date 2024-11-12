@@ -57,6 +57,7 @@ public class MemoryTable implements AutoCloseable {
 		state = MemoryTableState.Immutable;
 		walWriter.changeState();
 		String fileName = FileUtil.getSSTFileName();
+		log.debug("Flush memory table to file {}", fileName);
 		SSTableInfo ssTable = new SSTableInfo(fileName, 0);
 		memoryTable.flush(ssTable);
 		flamingoLSM.getSstMetadata().addFirstLevel(ssTable);

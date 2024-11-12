@@ -78,11 +78,15 @@ public class FileUtil {
 		return getMaxOrder(getDataDirPath(), regex);
 	}
 
-	public static void checkFileExists(String file, boolean throwException) {
+	public static boolean checkFileExists(String file, boolean throwException) {
 		Path path = Paths.get(file);
-		if (!Files.exists(path) && throwException) {
+		if (Files.exists(path)) {
+			return true;
+		}
+		if (throwException) {
 			throw new RuntimeException(file + " does not exist");
 		}
+		return false;
 	}
 
 	public static void checkFileExistsOrCreate(String file) {
@@ -95,6 +99,16 @@ public class FileUtil {
 			catch (IOException e) {
 				throw new RuntimeException("Could not create directory or file: " + path, e);
 			}
+		}
+	}
+
+	public static void deleteFile(String file) {
+		Path path = Paths.get(file);
+		try {
+			Files.deleteIfExists(path);
+		}
+		catch (IOException e) {
+			throw new RuntimeException("Could not delete file: " + path, e);
 		}
 	}
 

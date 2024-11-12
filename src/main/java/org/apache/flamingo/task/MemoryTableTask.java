@@ -29,4 +29,9 @@ public class MemoryTableTask implements Task {
 
 	}
 
+	@Override
+	public String toString() {
+		return "MemoryTableTask{" + "memoryTable=" + memoryTable.getWalWriter().getWalActiveFullPath() + '}';
+	}
+
 }

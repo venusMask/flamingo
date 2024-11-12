@@ -1,23 +1,34 @@
 package org.apache.flamingo.sstable;
 
-import lombok.Getter;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.*;
 import org.apache.flamingo.file.FileUtil;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
-/**
- * SSTable
- */
-@Getter
+@Data
+@Builder
+@AllArgsConstructor
 public class SSTableInfo {
 
 	public static final String SSTABLE = "sstable_";
 
-	private final String fileName;
+	public static final ObjectMapper ObjectMapper = new ObjectMapper();
 
-	private final int level;
+	private String fileName;
+
+	private int level;
+
+	private MetaInfo metaInfo;
+
+	public SSTableInfo() {
+	}
 
 	public SSTableInfo(String filePath, int level) {
 		this.fileName = filePath;
@@ -25,35 +36,46 @@ public class SSTableInfo {
 	}
 
 	public static byte[] serialize(SSTableInfo ssTable) throws IOException {
-		int level = ssTable.getLevel();
-		String filePath = ssTable.getFileName();
-		ByteBuffer byteBuffer = ByteBuffer.allocate(4 + 4 + filePath.length());
-		// Total length
-		byteBuffer.putInt(4 + filePath.length());
-		// level value
-		byteBuffer.putInt(level);
-		// file value
-		byteBuffer.put(filePath.getBytes(StandardCharsets.UTF_8));
-		return byteBuffer.array();
+		return ObjectMapper.writeValueAsBytes(ssTable);
 	}
 
-	public static SSTableInfo deserialize(ByteBuffer byteBuffer) throws IOException {
-		int totalSize = byteBuffer.getInt();
-		int level = byteBuffer.getInt();
-		byte[] fileByte = new byte[totalSize - 4];
-		byteBuffer.get(fileByte);
-		String filePath = new String(fileByte, StandardCharsets.UTF_8);
-		return new SSTableInfo(filePath, level);
-	}
-
-	@Override
-	public String toString() {
-		return "SSTable{" + "filePath='" + fileName + '\'' + ", level=" + level + '}';
+	public static SSTableInfo deserialize(byte[] bytes) throws IOException {
+		return ObjectMapper.readValue(bytes, SSTableInfo.class);
 	}
 
 	public static SSTableInfo create(int level) {
 		String fileName = FileUtil.getSSTFileName();
 		return new SSTableInfo(fileName, level);
+	}
+
+	public void delete() {
+		FileUtil.deleteFile(fileName);
+	}
+
+	@Data
+	@Builder
+	@AllArgsConstructor
+	public static class MetaInfo {
+
+		private byte[] minimumValue;
+
+		private byte[] maximumValue;
+
+		private long createTime;
+
+		private long lastUseTime;
+
+		public MetaInfo() {
+		}
+
+		public static byte[] serialize(MetaInfo metaInfo) throws JsonProcessingException {
+			return ObjectMapper.writeValueAsBytes(metaInfo);
+		}
+
+		public static MetaInfo deserialize(byte[] byteArray) throws IOException {
+			return ObjectMapper.readValue(byteArray, MetaInfo.class);
+		}
+
 	}
 
 }

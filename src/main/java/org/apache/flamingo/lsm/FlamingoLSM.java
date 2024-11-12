@@ -47,9 +47,6 @@ public class FlamingoLSM implements AutoCloseable {
 		IDAssign.initWALAssign(FileUtil.getMaxOrder(walRegex));
 	}
 
-	/**
-	 * MemTable的大小超过阈值的时候将当前memTable设置为不可变对象, 然后新构建一个MemTable接受新的请求.
-	 */
 	public boolean add(byte[] key, byte[] value) {
 		memoryTable.add(key, value);
 		if (memoryTable.size() > memoryTableThresholdSize) {
@@ -124,6 +121,7 @@ public class FlamingoLSM implements AutoCloseable {
 	public void close() throws Exception {
 		flush();
 		memoryTable.close();
+		taskManager.close();
 	}
 
 }

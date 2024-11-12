@@ -367,6 +367,9 @@ public class SkipList {
 					throw new RuntimeException("Write less");
 				}
 			}
+			channel.force(true);
+			outputStream.flush();
+			log.debug("Flushed " + fileName);
 		}
 		catch (IOException e) {
 			throw new RuntimeException(e);

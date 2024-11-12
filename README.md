@@ -6,3 +6,10 @@ LSM Tree <p>
 
 ## 二：Compact[Feature]
 1: 合并第一层的SSTable
+
+
+# Meta Information
+meta information的格式
+[
+    
+]
