@@ -20,15 +20,15 @@
             </Policies>
             <DefaultRolloverStrategy max="1000"/>
         </RollingRandomAccessFile>
-<!--        <Async name="AsyncAppender">-->
-<!--            <AppenderRef ref="RollingRandomAccessFileAppender" level="${level}"/>-->
-<!--            <AppenderRef ref="ConsoleAppender" level="${level}"/>-->
-<!--        </Async>-->
+        <Async name="AsyncAppender">
+            <AppenderRef ref="RollingRandomAccessFileAppender" level="${level}"/>
+            <AppenderRef ref="ConsoleAppender" level="${level}"/>
+        </Async>
     </Appenders>
     <Loggers>
-<!--        <Logger name="org.apache.flamingo" level="${level}" additivity="false">-->
-<!--            <AppenderRef ref="AsyncAppender"/>-->
-<!--        </Logger>-->
+        <Logger name="org.apache.flamingo" level="${level}" additivity="false">
+            <AppenderRef ref="AsyncAppender"/>
+        </Logger>
         <Root level="${level}">
             <AppenderRef ref="ConsoleAppender" />
         </Root>

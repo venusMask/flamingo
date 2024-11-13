@@ -37,6 +37,7 @@ public class Compact {
 		SSTableInfo firstLevelTable = SSTableInfo.create(1);
 		skipList.flush(firstLevelTable);
 		metaInfo.addLevelTable(firstLevelTable, 1);
+		removeDeleteInfo(firstLevel);
 	}
 
 	/**
@@ -46,6 +47,7 @@ public class Compact {
 	 * @param oldSSTables Old data. May be empty, but not be null!
 	 */
 	public void levelCompact(List<SSTableInfo> newSSTables, List<SSTableInfo> oldSSTables) {
+		log.debug("Begin level compaction...");
 		final int maxEntriesPerFile = Integer.parseInt(Options.SSTableMaxSize.getValue());
 		final int targetLevel = newSSTables.get(0).getLevel();
 		List<DataInputStream> newReaders = createReaders(newSSTables);
@@ -93,10 +95,15 @@ public class Compact {
 	}
 
 	private void removeDeleteInfo(List<SSTableInfo> tables) {
+		ArrayList<SSTableInfo> copyTables = new ArrayList<>(tables);
 		int level = tables.get(0).getLevel();
 		List<SSTableInfo> collections = metaInfo.getLevel(level);
 		collections.removeAll(tables);
-		tables.forEach(SSTableInfo::delete);
+		if(collections.isEmpty()) {
+			metaInfo.getMetaInfo().remove(level);
+		}
+		copyTables.forEach(SSTableInfo::delete);
+		metaInfo.serialize();
 	}
 
 	private void addMetaInfo(String fileName, int level) {

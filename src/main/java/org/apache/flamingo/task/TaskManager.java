@@ -67,7 +67,7 @@ public class TaskManager {
 	public void close() throws InterruptedException {
 		stop = true;
 		log.debug("Stopping task manager...");
-		tasks.clear(); // Optionally clear the queue to prevent further processing
+		// tasks.clear(); // Optionally clear the queue to prevent further processing
 		latch.await(); // Wait for the worker thread to finish
 		log.debug("Task manager stopped.");
 	}

@@ -1,5 +1,6 @@
 package org.apache.flamingo.sstable;
 
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.file.FileUtil;
 import org.apache.flamingo.utils.StringUtil;
@@ -20,6 +21,7 @@ public class SSTMetaInfo {
 	/**
 	 * Key: level number eg, 0,1,2....
 	 */
+	@Getter
 	private final Map<Integer, List<SSTableInfo>> metaInfo = new HashMap<>();
 
 	private int maxSize = 2;
@@ -27,7 +29,11 @@ public class SSTMetaInfo {
 	private final String metaFilePath;
 
 	public SSTMetaInfo() {
-		this.metaFilePath = FileUtil.getMetaInfoPath();
+		this(FileUtil.getMetaInfoPath());
+	}
+
+	public SSTMetaInfo(String metaFilePath) {
+		this.metaFilePath = metaFilePath;
 		deserialize();
 	}
 
@@ -50,19 +56,23 @@ public class SSTMetaInfo {
 	 * @param level
 	 */
 	public void compact(int level) {
-		List<SSTableInfo> newTables = pickNewTables(level);
-		ArrayList<SSTableInfo> oldTables = new ArrayList<>();
-		int nextLevel = level + 1;
-		List<SSTableInfo> oldLevel = metaInfo.get(nextLevel);
-		newTables.forEach(newTable -> {
-			oldLevel.forEach(oldTable -> {
-				if (hasOverlap(newTable, oldTable)) {
-					oldTables.add(oldTable);
-				}
-			});
-		});
 		Compact compact = new Compact();
-		compact.levelCompact(newTables, oldTables);
+		if(level == 0) {
+			compact.compactSSTableZero();
+		} else {
+			List<SSTableInfo> newTables = pickNewTables(level);
+			ArrayList<SSTableInfo> oldTables = new ArrayList<>();
+			int nextLevel = level + 1;
+			List<SSTableInfo> oldLevel = metaInfo.getOrDefault(nextLevel, new ArrayList<>());
+			newTables.forEach(newTable -> {
+				oldLevel.forEach(oldTable -> {
+					if (hasOverlap(newTable, oldTable)) {
+						oldTables.add(oldTable);
+					}
+				});
+			});
+			compact.levelCompact(newTables, oldTables);
+		}
 	}
 
 	/**
@@ -80,7 +90,7 @@ public class SSTMetaInfo {
 		return StringUtil.compareByteArrays(newMax, oldMin) >= 0 && StringUtil.compareByteArrays(oldMax, newMin) >= 0;
 	}
 
-	private void serialize() {
+	public void serialize() {
 		log.debug("serialize meta information to disk!");
 		try (OutputStream outputStream = Files.newOutputStream(Paths.get(metaFilePath));
 				BufferedOutputStream writer = new BufferedOutputStream(outputStream)) {

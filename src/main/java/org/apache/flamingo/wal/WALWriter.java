@@ -86,6 +86,7 @@ public class WALWriter {
 		if (!deleteFlag) {
 			throw new RuntimeException("Failed to delete WAL file " + walSilenceFullPath);
 		}
+		log.info("Deleted WAL file " + walSilenceFullPath);
 	}
 
 	public void changeState() {
@@ -95,6 +96,7 @@ public class WALWriter {
 			if (!flag) {
 				throw new RuntimeException("Failed to rename WAL file " + walActiveFullPath);
 			}
+			log.debug("Rename wal file from {} to {}", walActiveFullPath, walSilenceFullPath);
 		}
 		catch (IOException e) {
 			throw new RuntimeException(e);

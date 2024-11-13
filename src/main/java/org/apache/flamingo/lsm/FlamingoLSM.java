@@ -1,7 +1,9 @@
 package org.apache.flamingo.lsm;
 
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.core.IDAssign;
+import org.apache.flamingo.core.LSMContext;
 import org.apache.flamingo.file.FileUtil;
 import org.apache.flamingo.memtable.MemoryTable;
 import org.apache.flamingo.options.Options;
@@ -17,6 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
+@Slf4j
 @Getter
 public class FlamingoLSM implements AutoCloseable {
 
@@ -28,6 +31,8 @@ public class FlamingoLSM implements AutoCloseable {
 
 	private final TaskManager taskManager;
 
+	private final LSMContext context = LSMContext.getInstance();
+
 	public FlamingoLSM() {
 		this.memoryTableThresholdSize = Integer.parseInt(Options.MemoryTableThresholdSize.getValue());
 		this.taskManager = new TaskManager();
@@ -38,6 +43,8 @@ public class FlamingoLSM implements AutoCloseable {
 			this.memoryTable = new MemoryTable(this);
 		}
 		taskManager.start();
+		// Set context
+		context.setSstMetadata(sstMetadata);
 	}
 
 	public void initMeta() {
@@ -52,6 +59,7 @@ public class FlamingoLSM implements AutoCloseable {
 		if (memoryTable.size() > memoryTableThresholdSize) {
 			MemoryTableTask task = new MemoryTableTask(memoryTable);
 			taskManager.addTask(task);
+			log.debug("Switch memory table");
 			memoryTable = new MemoryTable(this);
 		}
 		return true;
@@ -111,17 +119,20 @@ public class FlamingoLSM implements AutoCloseable {
 		taskManager.addTask(task);
 	}
 
-	public void flush() {
+	public void flush(boolean terminal) {
 		MemoryTableTask task = new MemoryTableTask(memoryTable);
 		taskManager.addTask(task);
-		memoryTable = new MemoryTable(this);
+		if(!terminal) {
+			memoryTable = new MemoryTable(this);
+		}
 	}
 
 	@Override
 	public void close() throws Exception {
-		flush();
+		flush(true);
 		memoryTable.close();
 		taskManager.close();
+		log.debug("Closing FlamingoLSM Success!");
 	}
 
 }

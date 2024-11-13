@@ -42,6 +42,7 @@ public class FileUtil {
 		String filePath = getDataDirFilePath(fileName);
 		try {
 			Files.deleteIfExists(Paths.get(filePath));
+			log.debug("Deleted " + filePath);
 			return true;
 		}
 		catch (IOException e) {
@@ -105,7 +106,10 @@ public class FileUtil {
 	public static void deleteFile(String file) {
 		Path path = Paths.get(file);
 		try {
-			Files.deleteIfExists(path);
+			boolean flag = Files.deleteIfExists(path);
+			if(!flag) {
+				throw new RuntimeException("Could not delete file: " + path);
+			}
 		}
 		catch (IOException e) {
 			throw new RuntimeException("Could not delete file: " + path, e);

@@ -18,5 +18,4 @@ public class LSMContext {
 	public static LSMContext getInstance() {
 		return INSTANCE;
 	}
-
 }
