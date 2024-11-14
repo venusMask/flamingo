@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.file.FileUtil;
 import org.apache.flamingo.lsm.FlamingoLSM;
+import org.apache.flamingo.memtable.skiplist.SLNode;
 import org.apache.flamingo.memtable.skiplist.SkipList;
 import org.apache.flamingo.options.Options;
 import org.apache.flamingo.sstable.SSTableInfo;
@@ -49,7 +50,7 @@ public class MemoryTable implements AutoCloseable {
 		memoryTable.remove(key);
 	}
 
-	public byte[] search(byte[] key) {
+	public SLNode search(byte[] key) {
 		return memoryTable.search(key);
 	}
 

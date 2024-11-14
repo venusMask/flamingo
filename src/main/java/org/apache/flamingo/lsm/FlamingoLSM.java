@@ -6,6 +6,7 @@ import org.apache.flamingo.core.IDAssign;
 import org.apache.flamingo.core.LSMContext;
 import org.apache.flamingo.file.FileUtil;
 import org.apache.flamingo.memtable.MemoryTable;
+import org.apache.flamingo.memtable.skiplist.SLNode;
 import org.apache.flamingo.options.Options;
 import org.apache.flamingo.sstable.SSTMetaInfo;
 import org.apache.flamingo.sstable.SSTableInfo;
@@ -71,7 +72,12 @@ public class FlamingoLSM implements AutoCloseable {
 	}
 
 	public byte[] search(byte[] key) {
-		return memoryTable.search(key);
+		SLNode memory = memoryTable.search(key);
+		if (memory != null && memory.isDeleted()) {
+			return null;
+		}
+		// Search from disk
+		return sstMetadata.search(key);
 	}
 
 	/**
@@ -122,7 +128,7 @@ public class FlamingoLSM implements AutoCloseable {
 	public void flush(boolean terminal) {
 		MemoryTableTask task = new MemoryTableTask(memoryTable);
 		taskManager.addTask(task);
-		if(!terminal) {
+		if (!terminal) {
 			memoryTable = new MemoryTable(this);
 		}
 	}

@@ -155,14 +155,14 @@ public class CompactTest extends TestCase {
 
 	public void testMajorCompact() throws IOException {
 		Compact compact = new Compact();
-		String maskFile = "/Users/dzh/software/java/projects/flamingo/data/compact/mask.sst";
-		SSTableInfo a = prepareSSTable("/Users/dzh/software/java/projects/flamingo/data/compact/a", maskFile);
-		SSTableInfo b = prepareSSTable("/Users/dzh/software/java/projects/flamingo/data/compact/b", maskFile);
-		SSTableInfo c = prepareSSTable("/Users/dzh/software/java/projects/flamingo/data/compact/c", maskFile);
-		SSTableInfo d = prepareSSTable("/Users/dzh/software/java/projects/flamingo/data/compact/d", maskFile);
+		String maskFile = "data/compact/mask.sst";
+		SSTableInfo a = prepareSSTable("data/compact/a", maskFile);
+		SSTableInfo b = prepareSSTable("data/compact/b", maskFile);
+		SSTableInfo c = prepareSSTable("data/compact/c", maskFile);
+		SSTableInfo d = prepareSSTable("data/compact/d", maskFile);
 		List<SSTableInfo> newSSTable = Arrays.asList(a, b);
 		List<SSTableInfo> oldSSTable = Arrays.asList(c, d);
-		compact.levelCompact(newSSTable, oldSSTable);
+		compact.majorCompact(newSSTable, oldSSTable);
 	}
 
 }

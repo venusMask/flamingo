@@ -3,26 +3,26 @@ package org.apache.flamingo.sstable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.file.FileUtil;
+import org.apache.flamingo.utils.Pair;
 import org.apache.flamingo.utils.StringUtil;
-import org.apache.logging.log4j.core.util.FileUtils;
 
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.IntFunction;
+import java.util.function.ToIntFunction;
 
 /**
- * Store SSTable meta information.
+ * Store sst meta information.
  */
 @Slf4j
 public class SSTMetaInfo {
 
-	/**
-	 * Key: level number eg, 0,1,2....
-	 */
 	@Getter
-	private final Map<Integer, List<SSTableInfo>> metaInfo = new HashMap<>();
+	private final Map<Integer, List<SSTableInfo>> metaInfo = new ConcurrentHashMap<>();
 
 	private int maxSize = 2;
 
@@ -38,11 +38,11 @@ public class SSTMetaInfo {
 	}
 
 	public void addLevelTable(SSTableInfo table, int level) {
-		metaInfo.computeIfAbsent(level, k -> new ArrayList<>()).add(table);
+		metaInfo.computeIfAbsent(level, k -> Collections.synchronizedList(new ArrayList<>())).add(table);
 		serialize();
 		List<SSTableInfo> tables = metaInfo.get(level);
 		if (tables.size() > maxSize) {
-			log.debug("Table size {}, Beginning compact", tables.size());
+			log.debug("level: {}, sst size {}, Compact start...", level, tables.size());
 			compact(level);
 		}
 	}
@@ -51,28 +51,32 @@ public class SSTMetaInfo {
 		addLevelTable(ssTable, 0);
 	}
 
-	/**
-	 * 1: 从需要merge的层ln中挑选出需要合并的文件 2: 从l_n+1层中挑选出范围有重合的文件, 3: 执行合并
-	 * @param level
-	 */
 	public void compact(int level) {
 		Compact compact = new Compact();
-		if(level == 0) {
-			compact.compactSSTableZero();
-		} else {
-			List<SSTableInfo> newTables = pickNewTables(level);
-			ArrayList<SSTableInfo> oldTables = new ArrayList<>();
-			int nextLevel = level + 1;
-			List<SSTableInfo> oldLevel = metaInfo.getOrDefault(nextLevel, new ArrayList<>());
-			newTables.forEach(newTable -> {
-				oldLevel.forEach(oldTable -> {
-					if (hasOverlap(newTable, oldTable)) {
-						oldTables.add(oldTable);
-					}
-				});
+		if (level == 0) {
+			List<SSTableInfo> zeroTables = new ArrayList<>(metaInfo.get(0));
+			zeroTables.forEach(zeroTable -> {
+				List<SSTableInfo> newTables = Collections.singletonList(zeroTable);
+				List<SSTableInfo> needCompactSST = hasOverlap(newTables, 1);
+				compact.majorCompact(newTables, needCompactSST);
 			});
-			compact.levelCompact(newTables, oldTables);
 		}
+		else {
+			List<SSTableInfo> newTables = pickNewTables(level);
+			List<SSTableInfo> needCompactSST = hasOverlap(newTables, level + 1);
+			compact.majorCompact(newTables, needCompactSST);
+		}
+	}
+
+	public List<SSTableInfo> hasOverlap(List<SSTableInfo> newTables, int nextLevel) {
+		ArrayList<SSTableInfo> needCompactSST = new ArrayList<>();
+		List<SSTableInfo> oldTables = metaInfo.getOrDefault(nextLevel, Collections.emptyList());
+		newTables.forEach(newTable -> oldTables.forEach(oldTable -> {
+			if (hasOverlap(newTable, oldTable)) {
+				needCompactSST.add(oldTable);
+			}
+		}));
+		return needCompactSST;
 	}
 
 	/**
@@ -91,7 +95,7 @@ public class SSTMetaInfo {
 	}
 
 	public void serialize() {
-		log.debug("serialize meta information to disk!");
+		log.debug("sst meta change, serialize meta information to disk!");
 		try (OutputStream outputStream = Files.newOutputStream(Paths.get(metaFilePath));
 				BufferedOutputStream writer = new BufferedOutputStream(outputStream)) {
 			metaInfo.values().forEach(list -> list.forEach(table -> {
@@ -129,12 +133,15 @@ public class SSTMetaInfo {
 						break;
 					SSTableInfo sst = SSTableInfo.deserialize(serialized);
 					int level = sst.getLevel();
-					metaInfo.computeIfAbsent(level, k -> new ArrayList<>()).add(sst);
+					metaInfo.computeIfAbsent(level, k -> Collections.synchronizedList(new ArrayList<>())).add(sst);
 				}
 			}
 			catch (IOException e) {
 				throw new RuntimeException("Failed to deserialize meta information", e);
 			}
+		}
+		else {
+			log.debug("Meta information file does not exist, skipping deserialization!");
 		}
 	}
 
@@ -144,6 +151,45 @@ public class SSTMetaInfo {
 			throw new RuntimeException("Level " + level + " not found");
 		}
 		return list;
+	}
+
+	private Pair<byte[], Boolean> searchFromZeroLevel(byte[] key) {
+		List<SSTableInfo> tables = metaInfo.get(0);
+		for (SSTableInfo table : tables) {
+			Pair<byte[], Boolean> pair = table.search(key);
+			if (pair.getF1()) {
+				return pair;
+			}
+		}
+		return Pair.of(null, false);
+	}
+
+	public byte[] search(byte[] key) {
+		Pair<byte[], Boolean> pair = searchFromZeroLevel(key);
+		if (pair.getF1()) {
+			return pair.getF0();
+		}
+		Set<Integer> keySet = metaInfo.keySet();
+		keySet.remove(0);
+		ArrayList<Integer> keys = new ArrayList<>(keySet);
+		Collections.sort(keys);
+		for (Integer levelNumber : keys) {
+			List<SSTableInfo> level = metaInfo.get(levelNumber);
+			for (int j = level.size() - 1; j >= 0; j--) {
+				SSTableInfo mayBeSearchSST = level.get(j);
+				byte[] minimumValue = mayBeSearchSST.getMetaInfo().getMinimumValue();
+				byte[] maximumValue = mayBeSearchSST.getMetaInfo().getMaximumValue();
+				if (StringUtil.compareByteArrays(minimumValue, key) <= 0
+						&& StringUtil.compareByteArrays(maximumValue, key) >= 0) {
+					Pair<byte[], Boolean> searchPair = mayBeSearchSST.search(key);
+					if (searchPair.getF1()) {
+						return searchPair.getF0();
+					}
+					break;
+				}
+			}
+		}
+		return null;
 	}
 
 }

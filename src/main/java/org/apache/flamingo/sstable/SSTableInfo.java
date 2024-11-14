@@ -5,13 +5,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.file.FileUtil;
+import org.apache.flamingo.utils.Pair;
 
+import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 
 @Slf4j
 @Data
@@ -54,6 +58,44 @@ public class SSTableInfo {
 		FileUtil.deleteFile(fileName);
 	}
 
+	@Override
+	public String toString() {
+		return "SSTableInfo [fileName=" + fileName + ", level=" + level + "]";
+	}
+
+	/**
+	 * @param key search key
+	 * @return f0: value, f1: find
+	 */
+	public Pair<byte[], Boolean> search(byte[] key) {
+		try (InputStream inputStream = Files.newInputStream(Paths.get(fileName));
+				DataInputStream reader = new DataInputStream(inputStream)) {
+			while (reader.available() > 0) {
+				byte b = reader.readByte();
+				boolean delFlag = b == (byte) 1;
+				int kl = reader.readInt();
+				byte[] k = new byte[kl];
+				reader.readFully(k);
+				int vl = reader.readInt();
+				byte[] v = new byte[vl];
+				reader.readFully(v);
+				// Search
+				if (Arrays.equals(key, k)) {
+					if (delFlag) {
+						return Pair.of(null, true);
+					}
+					else {
+						return Pair.of(v, true);
+					}
+				}
+			}
+			return Pair.of(null, false);
+		}
+		catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
 	@Data
 	@Builder
 	@AllArgsConstructor
@@ -63,9 +105,11 @@ public class SSTableInfo {
 
 		private byte[] maximumValue;
 
-		private long createTime;
+		private long count = 0;
 
-		private long lastUseTime;
+		private long createTime = System.currentTimeMillis();
+
+		private long lastUseTime = System.currentTimeMillis();
 
 		public MetaInfo() {
 		}
@@ -76,6 +120,20 @@ public class SSTableInfo {
 
 		public static MetaInfo deserialize(byte[] byteArray) throws IOException {
 			return ObjectMapper.readValue(byteArray, MetaInfo.class);
+		}
+
+		public static MetaInfo create(byte[] min, byte[] max) {
+			return create(min, max, 0);
+		}
+
+		public static MetaInfo create(byte[] min, byte[] max, long count) {
+			return SSTableInfo.MetaInfo.builder()
+				.minimumValue(min)
+				.maximumValue(max)
+				.createTime(System.currentTimeMillis())
+				.lastUseTime(System.currentTimeMillis())
+				.count(count)
+				.build();
 		}
 
 	}

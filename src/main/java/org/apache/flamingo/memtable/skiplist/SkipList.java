@@ -12,7 +12,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 import static org.apache.flamingo.utils.StringUtil.compareByteArrays;
@@ -60,20 +59,32 @@ public class SkipList {
 	}
 
 	public void put(String key, String value) {
-		put(key.getBytes(StandardCharsets.UTF_8), value.getBytes(StandardCharsets.UTF_8));
+		put(StringUtil.fromString(key), StringUtil.fromString(value));
 	}
 
 	public void put(byte[] key, byte[] value) {
+		put(key, value, false);
+	}
+
+	public void remove(String key) {
+		remove(StringUtil.fromString(key));
+	}
+
+	public void remove(byte[] key) {
+		put(key, null, true);
+	}
+
+	private void put(byte[] key, byte[] value, boolean isDeleted) {
 		SLNode anchorNode = findPrev(key);
-		// 目标节点存在
+		// The target node exists
 		if (Arrays.equals(key, anchorNode.getKey())) {
+			anchorNode.setDeleted(isDeleted);
 			anchorNode.setValue(value);
 			return;
 		}
-		SLNode insertNode = new SLNode(key, value);
+		SLNode insertNode = new SLNode(key, value, isDeleted);
 		afterInsert(anchorNode, insertNode);
 		int currentLevel = 0;
-		// 判断是否需要对节点进行升级建立索引层
 		while (random.nextDouble() < probability) {
 			// If it exceeds the height, a new top floor needs to be built
 			if (currentLevel >= level && currentLevel < maxLevel) {
@@ -86,7 +97,6 @@ public class SkipList {
 				head = newHead;
 				tail = newTail;
 			}
-			// 此处有可能被移动到HEAD节点所以需要加getLeft()判断
 			while (anchorNode != null && anchorNode.getUp() == null) {
 				anchorNode = anchorNode.getLeft();
 			}
@@ -94,6 +104,7 @@ public class SkipList {
 				break;
 			}
 			anchorNode = anchorNode.getUp();
+			// Index nodes do not require value values
 			SLNode e = new SLNode(key, null);
 			afterInsert(anchorNode, e);
 			vertical(e, insertNode);
@@ -103,55 +114,14 @@ public class SkipList {
 		size++;
 	}
 
-	public void remove(String key) {
-		remove(key.getBytes(StandardCharsets.UTF_8));
+	public SLNode search(String key) {
+		return search(StringUtil.fromString(key));
 	}
 
-	public void remove(byte[] key) {
-		SLNode anchorNode = findPrev(key);
-		// There are two situations for anchor nodes:
-		// 1: If the target node exists, the anchor node must be the key
-		// 2: If the target node does not exist, the anchor node must be the element
-		// before Tail
-		if (!Arrays.equals(anchorNode.getKey(), key)) {
-			return;
-		}
-		anchorNode = anchorNode.getLeft();
-		while (anchorNode != null) {
-			SLNode toRemove = anchorNode.getRight();
-			if (!Arrays.equals(key, toRemove.getKey())) {
-				break;
-			}
-			anchorNode.setRight(toRemove.getRight());
-			toRemove.getRight().setLeft(anchorNode);
-			// Move to the first node on the left carrying the upper layer node
-			while (anchorNode.getLeft() != null && anchorNode.getUp() == null) {
-				anchorNode = anchorNode.getLeft();
-			}
-			anchorNode = anchorNode.getUp();
-			if (toRemove.getDown() != null) {
-				toRemove.getDown().setUp(null);
-			}
-			toRemove.setDown(null);
-			toRemove.setRight(null);
-			toRemove.setLeft(null);
-		}
-		size--;
-		while (level > 1 && head.getRight().getKey() == SLNode.TailKey) {
-			head = head.getDown();
-			tail = tail.getDown();
-			level--;
-		}
-	}
-
-	public byte[] search(String key) {
-		return search(key.getBytes(StandardCharsets.UTF_8));
-	}
-
-	public byte[] search(byte[] key) {
+	public SLNode search(byte[] key) {
 		SLNode p = findPrev(key);
 		if (Arrays.equals(key, p.getKey())) {
-			return p.getValue();
+			return p;
 		}
 		else {
 			return null;
@@ -207,7 +177,7 @@ public class SkipList {
 		down.setUp(up);
 	}
 
-	public SLNode getLastHead() {
+	private SLNode getLastHead() {
 		SLNode p = head;
 		while (p.getDown() != null) {
 			p = p.getDown();
@@ -220,7 +190,9 @@ public class SkipList {
 		lastHead = lastHead.getRight();
 		List<String> keys = new LinkedList<>();
 		while (lastHead.getRight() != null) {
-			keys.add(StringUtil.fromBytes(lastHead.getKey()));
+			if (!lastHead.isDeleted()) {
+				keys.add(StringUtil.fromBytes(lastHead.getKey()));
+			}
 			lastHead = lastHead.getRight();
 		}
 		return keys;
@@ -243,7 +215,8 @@ public class SkipList {
 				}
 				else {
 					if (lastWord == null) {
-						lastWord = StringUtil.fromBytes(currentNode.getKey());
+						lastWord = StringUtil.fromBytes(currentNode.getKey())
+								+ (currentNode.isDeleted() ? "(T)" : "(F)");
 					}
 					maxWidth = Math.max(maxWidth, lastWord.length());
 					itemArray.add(lastWord);
@@ -301,12 +274,6 @@ public class SkipList {
 		return builder.toString();
 	}
 
-	/**
-	 * 根据sstable构建SkipList
-	 * @param option
-	 * @param ssTable
-	 * @return
-	 */
 	public static SkipList build(SkipListOption option, SSTableInfo ssTable) {
 		SkipList skipList = new SkipList(option);
 		try (FileInputStream fileInputStream = new FileInputStream(ssTable.getFileName())) {
@@ -316,12 +283,13 @@ public class SkipList {
 			readChannel.read(byteBuffer);
 			byteBuffer.flip();
 			while (true) {
+				byte delByte = byteBuffer.get();
 				byte[] keyByte = MemoryTable.readByteBuffer(byteBuffer);
 				if (keyByte == null) {
 					break;
 				}
 				byte[] valueByte = MemoryTable.readByteBuffer(byteBuffer);
-				skipList.put(keyByte, valueByte);
+				skipList.put(keyByte, valueByte, delByte == (byte) 1);
 			}
 			return skipList;
 		}
@@ -330,33 +298,27 @@ public class SkipList {
 		}
 	}
 
-	public void merge(SkipList skipList) {
-		if (skipList != null && !skipList.isEmpty()) {
-			SLNode newSkipHead = skipList.getLastHead();
-			newSkipHead = newSkipHead.getRight();
-			while (newSkipHead.getRight() != null) {
-				put(newSkipHead.getKey(), newSkipHead.getValue());
-				newSkipHead = newSkipHead.getRight();
-			}
-		}
-	}
-
 	/**
-	 * Flush memory data to disk.
+	 * Flush memory data to disk. [delete_flag k_len k_val v_len v_val]
 	 * @param sst target file
 	 */
 	public void flush(SSTableInfo sst) {
 		String fileName = sst.getFileName();
+		SLNode lastHead = getLastHead();
+		byte[] minKey = lastHead.getRight().getKey();
+		lastHead = lastHead.getRight();
+		long count = 0;
 		try (FileOutputStream outputStream = new FileOutputStream(fileName, true)) {
 			FileChannel channel = outputStream.getChannel();
-			SLNode lastHead = getLastHead();
-			while (lastHead.getRight().getKey() != SLNode.TailKey) {
-				lastHead = lastHead.getRight();
+			while (lastHead.getRight() != null) {
+				count++;
+				byte isDeleted = lastHead.isDeleted() ? (byte) 1 : (byte) 0;
 				byte[] key = lastHead.getKey();
 				byte[] value = lastHead.getValue();
 				int kl = key.length;
 				int vl = value.length;
-				ByteBuffer byteBuffer = ByteBuffer.allocate(4 + 4 + kl + vl);
+				ByteBuffer byteBuffer = ByteBuffer.allocate(1 + 4 + 4 + kl + vl);
+				byteBuffer.put(isDeleted);
 				byteBuffer.putInt(kl);
 				byteBuffer.put(key);
 				byteBuffer.putInt(vl);
@@ -366,10 +328,15 @@ public class SkipList {
 				if (written != 4 + 4 + kl + vl) {
 					throw new RuntimeException("Write less");
 				}
+				lastHead = lastHead.getRight();
 			}
+			byte[] maxKey = lastHead.getLeft().getKey();
+			SSTableInfo.MetaInfo metaInfo = SSTableInfo.MetaInfo.create(minKey, maxKey, count);
+			sst.setMetaInfo(metaInfo);
 			channel.force(true);
 			outputStream.flush();
-			log.debug("Flushed " + fileName);
+			log.debug("Flush skip list to sst, file: {}, count: {}. Skip list minimum key: {}, maximum key: {}.",
+					fileName, count, StringUtil.fromBytes(minKey), StringUtil.fromBytes(maxKey));
 		}
 		catch (IOException e) {
 			throw new RuntimeException(e);

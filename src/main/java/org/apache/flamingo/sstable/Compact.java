@@ -1,11 +1,10 @@
 package org.apache.flamingo.sstable;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.core.LSMContext;
 import org.apache.flamingo.file.FileUtil;
-import org.apache.flamingo.memtable.skiplist.SkipList;
-import org.apache.flamingo.memtable.skiplist.SkipListOption;
 import org.apache.flamingo.options.Options;
 import org.apache.flamingo.utils.StringUtil;
 
@@ -23,58 +22,68 @@ public class Compact {
 	private final SSTMetaInfo metaInfo = context.getSstMetadata();
 
 	/**
-	 * 合并SSTable 0层的数据 针对第0层的文件,按照写入的先后顺序遍历所有被持久化的文件(后被写入的文件总是具有更高的时效性可以覆盖先被写入的文件)
-	 * 在内存中合并所有的sst, 具体的行为是按照顺序将所有的数据插入SkipList中然后再将数据写入第1层的磁盘文件
-	 */
-	public void compactSSTableZero() {
-		SkipListOption option = SkipListOption.builder().maxLevel(32).probability(0.5).build();
-		List<SSTableInfo> firstLevel = metaInfo.getLevel(0);
-		SkipList skipList = new SkipList();
-		for (SSTableInfo ssTable : firstLevel) {
-			SkipList buildSkipList = SkipList.build(option, ssTable);
-			skipList.merge(buildSkipList);
-		}
-		SSTableInfo firstLevelTable = SSTableInfo.create(1);
-		skipList.flush(firstLevelTable);
-		metaInfo.addLevelTable(firstLevelTable, 1);
-		removeDeleteInfo(firstLevel);
-	}
-
-	/**
 	 * <a href="https://en.wikipedia.org/wiki/Merge_sort">File Merge Sort</a>
-	 * @param newSSTables New data. May be empty, but not be null! When duplicate keys
-	 * appear during the merging process, the new data takes effect
-	 * @param oldSSTables Old data. May be empty, but not be null!
+	 * @param upperLevelSST New data. Absolutely impossible to be null or empty! When
+	 * duplicate keys appear during the merging process, the new data takes effect
+	 * @param lowerLevelSST Old data. May be empty, but absolutely impossible to be null!
 	 */
-	public void levelCompact(List<SSTableInfo> newSSTables, List<SSTableInfo> oldSSTables) {
-		log.debug("Begin level compaction...");
+	public void majorCompact(List<SSTableInfo> upperLevelSST, List<SSTableInfo> lowerLevelSST) {
+		ArrayList<SSTableInfo> newLowerLevelSST = new ArrayList<>();
+		logCompactInfo(upperLevelSST, lowerLevelSST);
 		final int maxEntriesPerFile = Integer.parseInt(Options.SSTableMaxSize.getValue());
-		final int targetLevel = newSSTables.get(0).getLevel();
-		List<DataInputStream> newReaders = createReaders(newSSTables);
-		List<DataInputStream> oldReaders = createReaders(oldSSTables);
-		PriorityQueue<Entry> queue = new PriorityQueue<>(
-				(o1, o2) -> StringUtil.compareByteArrays(o1.getKey(), o2.getKey()));
+		final int targetLevel = upperLevelSST.get(0).getLevel() + 1;
+		List<DataInputStream> newReaders = createReaders(upperLevelSST);
+		List<DataInputStream> oldReaders = createReaders(lowerLevelSST);
+		// The same key needs to ensure that the data in the upper level SST pops up first
+		PriorityQueue<Entry> queue = new PriorityQueue<>((o1, o2) -> {
+			int keyComparison = StringUtil.compareByteArrays(o1.getKey(), o2.getKey());
+			if (keyComparison != 0) {
+				return keyComparison;
+			}
+			return Boolean.compare(o1.fromNewSSTable, o2.fromNewSSTable);
+		});
 		loadInitialEntries(queue, newReaders, true);
 		loadInitialEntries(queue, oldReaders, false);
 		String targetFileName = FileUtil.getSSTFileName();
 		DataOutputStream writer = createNewTargetWriter(targetFileName);
-		int entryCount = 0;
+		long entryCount = 0;
 		byte[] lastKey = null;
+		assert queue.peek() != null;
+		byte[] minKey = queue.peek().getKey();
+		byte[] maxKey = queue.peek().getKey();
 		try {
 			while (!queue.isEmpty()) {
 				Entry entry = queue.poll();
-				if (lastKey == null || !Arrays.equals(lastKey, entry.key)) {
+				byte[] entryKey = entry.getKey();
+				if (StringUtil.compareByteArrays(minKey, entryKey) > 0) {
+					minKey = entryKey;
+				}
+				if (StringUtil.compareByteArrays(maxKey, entryKey) < 0) {
+					maxKey = entryKey;
+				}
+				// There are several situations as follows
+				// 1: First write: direct write
+				// 2: The key is different from the previous key: direct write
+				// 3: The key is same as last time, Because the data that pops up first is
+				// of higher priority,
+				// the data that pops up at this time is directly discarded.
+				if (lastKey == null || !Arrays.equals(lastKey, entryKey)) {
 					writer.write(entry.toBytes());
 					entryCount++;
-					lastKey = entry.key;
-					if (entryCount >= maxEntriesPerFile) {
-						writer.flush();
-						writer.close();
-						addMetaInfo(targetFileName, targetLevel);
-						targetFileName = FileUtil.getSSTFileName();
-						writer = createNewTargetWriter(targetFileName);
-						entryCount = 0;
-					}
+					lastKey = entryKey;
+				}
+				if (entryCount >= maxEntriesPerFile) {
+					writer.flush();
+					writer.close();
+					SSTableInfo sst = SSTableInfo.builder()
+						.fileName(targetFileName)
+						.level(targetLevel)
+						.metaInfo(SSTableInfo.MetaInfo.create(minKey, maxKey, entryCount))
+						.build();
+					newLowerLevelSST.add(sst);
+					targetFileName = FileUtil.getSSTFileName();
+					writer = createNewTargetWriter(targetFileName);
+					entryCount = 0;
 				}
 				if (entry.hasRemaining()) {
 					queue.offer(new Entry(entry.reader, entry.fromNewSSTable));
@@ -89,26 +98,55 @@ public class Compact {
 		catch (IOException e) {
 			throw new RuntimeException(e);
 		}
-		addMetaInfo(targetFileName, targetLevel);
-		removeDeleteInfo(newSSTables);
-		removeDeleteInfo(oldSSTables);
+		if (entryCount > 0) {
+			SSTableInfo sst = SSTableInfo.builder()
+				.fileName(targetFileName)
+				.level(targetLevel)
+				.metaInfo(SSTableInfo.MetaInfo.create(minKey, maxKey, entryCount))
+				.build();
+			newLowerLevelSST.add(sst);
+		}
+		addMetaInfo(newLowerLevelSST, targetLevel);
+		removeDeleteInfo(upperLevelSST);
+		if (!lowerLevelSST.isEmpty()) {
+			removeDeleteInfo(lowerLevelSST);
+		}
 	}
 
-	private void removeDeleteInfo(List<SSTableInfo> tables) {
-		ArrayList<SSTableInfo> copyTables = new ArrayList<>(tables);
-		int level = tables.get(0).getLevel();
+	/**
+	 * Delete the merged file information after the merge is completed
+	 */
+	private void removeDeleteInfo(List<SSTableInfo> needDelSST) {
+		ArrayList<SSTableInfo> copyTables = new ArrayList<>(needDelSST);
+		int level = needDelSST.get(0).getLevel();
+		try {
+			log.debug("Before delete meta Info: {}",
+					new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(metaInfo));
+		}
+		catch (IOException ignore) {
+		}
 		List<SSTableInfo> collections = metaInfo.getLevel(level);
-		collections.removeAll(tables);
-		if(collections.isEmpty()) {
+		collections.removeAll(needDelSST);
+		if (collections.isEmpty()) {
+			log.debug("level {} is empty, remove current level.", level);
 			metaInfo.getMetaInfo().remove(level);
 		}
 		copyTables.forEach(SSTableInfo::delete);
+		try {
+			log.debug("After delete meta Info: {}",
+					new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(metaInfo));
+		}
+		catch (IOException ignore) {
+		}
 		metaInfo.serialize();
 	}
 
-	private void addMetaInfo(String fileName, int level) {
-		SSTableInfo ssTableInfo = new SSTableInfo(fileName, level);
-		metaInfo.addLevelTable(ssTableInfo, level);
+	private void addMetaInfo(List<SSTableInfo> sstTables, int level) {
+		log.info("new files generated by merging: ");
+		sstTables.forEach(table -> {
+			log.debug(table.toString());
+			metaInfo.addLevelTable(table, level);
+		});
 	}
 
 	private List<DataInputStream> createReaders(List<SSTableInfo> tables) {
@@ -145,12 +183,23 @@ public class Compact {
 		}
 	}
 
+	private void logCompactInfo(List<SSTableInfo> upperLevelSST, List<SSTableInfo> lowerLevelSST) {
+		log.debug("  Begin Major Compaction, Print Compaction Info  ");
+		log.debug("  High priority SST Files ");
+		upperLevelSST.forEach(System.out::println);
+		log.debug("  Low priority SST Files ");
+		lowerLevelSST.forEach(System.out::println);
+		log.debug("  End Major Compaction, Success Compaction ! ");
+	}
+
 	@Getter
 	public static class Entry {
 
 		private final byte[] key;
 
 		private final byte[] value;
+
+		private final Boolean isDeleted;
 
 		private final boolean fromNewSSTable;
 
@@ -161,6 +210,8 @@ public class Compact {
 			this.fromNewSSTable = fromNewSSTable;
 			try {
 				if (reader != null && reader.available() > 0) {
+					byte b = reader.readByte();
+					this.isDeleted = b == (byte) 1;
 					int kl = reader.readInt();
 					this.key = new byte[kl];
 					reader.readFully(this.key);
@@ -171,6 +222,7 @@ public class Compact {
 				else {
 					this.key = null;
 					this.value = null;
+					this.isDeleted = false;
 				}
 			}
 			catch (IOException e) {
@@ -190,7 +242,9 @@ public class Compact {
 		public byte[] toBytes() {
 			int kl = key.length;
 			int vl = value.length;
-			ByteBuffer byteBuffer = ByteBuffer.allocate(4 + 4 + kl + vl);
+			byte delByte = isDeleted ? (byte) 1 : (byte) 0;
+			ByteBuffer byteBuffer = ByteBuffer.allocate(1 + 4 + 4 + kl + vl);
+			byteBuffer.put(delByte);
 			byteBuffer.putInt(kl);
 			byteBuffer.put(key);
 			byteBuffer.putInt(vl);

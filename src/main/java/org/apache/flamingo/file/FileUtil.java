@@ -104,10 +104,11 @@ public class FileUtil {
 	}
 
 	public static void deleteFile(String file) {
+		log.debug("Deleting " + file);
 		Path path = Paths.get(file);
 		try {
 			boolean flag = Files.deleteIfExists(path);
-			if(!flag) {
+			if (!flag) {
 				throw new RuntimeException("Could not delete file: " + path);
 			}
 		}

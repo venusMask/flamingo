@@ -35,6 +35,18 @@ public class SkipListTest extends TestCase {
 		skipList.put(key, value);
 	}
 
+	public void testDuplicateKey() {
+		SkipList skipList = new SkipList(0.5, 3);
+		for (int i = 0; i < 10; i++) {
+			skipList.put(String.valueOf(i), String.valueOf(i));
+		}
+		System.out.println(skipList);
+		for (int i = 0; i < 10; i++) {
+			skipList.put(String.valueOf(i), String.valueOf(i + 100));
+		}
+		System.out.println(skipList);
+	}
+
 	public void testSimpleOperation() throws Exception {
 		SkipList skipList = new SkipList();
 		// Test PUT

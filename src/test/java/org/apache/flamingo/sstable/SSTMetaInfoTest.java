@@ -15,14 +15,14 @@ import java.util.Map;
  */
 public class SSTMetaInfoTest extends TestCase {
 
-    private final ObjectMapper mapper = new ObjectMapper();
+	private final ObjectMapper mapper = new ObjectMapper();
 
-    public void testMetaInfo() throws JsonProcessingException {
-        String filePath = "/Users/dzh/software/java/projects/flamingo/data/meta_info.meta";
-        SSTMetaInfo sstMetaInfo = SSTMetaInfoUtil.prepareSSTMetaInfo(filePath);
-        Map<Integer, List<SSTableInfo>> metaInfo = sstMetaInfo.getMetaInfo();
-        String prettyJSONString = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(metaInfo);
-        System.out.println(prettyJSONString);
-    }
+	public void testMetaInfo() throws JsonProcessingException {
+		String filePath = "data/meta_info.meta";
+		SSTMetaInfo sstMetaInfo = SSTMetaInfoUtil.parseMetaFromFile(filePath);
+		Map<Integer, List<SSTableInfo>> metaInfo = sstMetaInfo.getMetaInfo();
+		String prettyJSONString = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(metaInfo);
+		System.out.println(prettyJSONString);
+	}
 
 }

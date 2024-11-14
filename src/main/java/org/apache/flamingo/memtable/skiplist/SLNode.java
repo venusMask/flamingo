@@ -20,6 +20,8 @@ public class SLNode {
 
 	private byte[] value;
 
+	private boolean deleted = false;
+
 	private SLNode right;
 
 	private SLNode left;
@@ -29,8 +31,13 @@ public class SLNode {
 	private SLNode down;
 
 	public SLNode(byte[] key, byte[] value) {
+		this(key, value, false);
+	}
+
+	public SLNode(byte[] key, byte[] value, boolean deleted) {
 		this.key = key;
 		this.value = value;
+		this.deleted = deleted;
 	}
 
 	public SLNode() {
@@ -46,7 +53,7 @@ public class SLNode {
 		else {
 			valueString = new String(value, StandardCharsets.UTF_8);
 		}
-		return "SLNode{key=" + keyString + ", value=" + valueString + "}";
+		return "SLNode{key=" + keyString + ", value=" + valueString + ", isDeleted=" + deleted + "}";
 	}
 
 }
