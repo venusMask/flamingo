@@ -317,7 +317,8 @@ public class SkipList {
 				byte[] value = lastHead.getValue();
 				int kl = key.length;
 				int vl = value.length;
-				ByteBuffer byteBuffer = ByteBuffer.allocate(1 + 4 + 4 + kl + vl);
+				int totalLength = 1 + 4 + 4 + kl + vl;
+				ByteBuffer byteBuffer = ByteBuffer.allocate(totalLength);
 				byteBuffer.put(isDeleted);
 				byteBuffer.putInt(kl);
 				byteBuffer.put(key);
@@ -325,7 +326,7 @@ public class SkipList {
 				byteBuffer.put(value);
 				byteBuffer.flip();
 				int written = channel.write(byteBuffer);
-				if (written != 4 + 4 + kl + vl) {
+				if (written != totalLength) {
 					throw new RuntimeException("Write less");
 				}
 				lastHead = lastHead.getRight();

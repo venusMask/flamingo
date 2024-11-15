@@ -78,8 +78,8 @@ public class SkipListTest extends TestCase {
 		log.debug("Test contains!");
 		long start2 = System.currentTimeMillis();
 		keys.forEach(key -> {
-			byte[] value = skipList.search(key);
-			assertEquals(key, StringUtil.fromBytes(value));
+			SLNode value = skipList.search(key);
+			assertEquals(key, StringUtil.fromBytes(value.getKey()));
 		});
 		long end2 = System.currentTimeMillis();
 		log.info("Search(contains) took {} ms", end2 - start2);

@@ -117,4 +117,19 @@ public class FileUtil {
 		}
 	}
 
+	public static void deleteDirectory(Path dir) throws IOException {
+		if (Files.exists(dir)) {
+			try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
+				for (Path path : stream) {
+					if (Files.isDirectory(path)) {
+						deleteDirectory(path); // 递归删除子目录
+					} else {
+						Files.delete(path); // 删除文件
+					}
+				}
+			}
+			Files.delete(dir); // 删除当前目录
+		}
+	}
+
 }

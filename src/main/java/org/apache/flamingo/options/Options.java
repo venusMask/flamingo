@@ -29,7 +29,7 @@ public class Options {
 
 	public static Option SSTableMaxSize = Option.builder()
 		.key("sstable_max_size")
-		.value(String.valueOf(1000))
+		.value(String.valueOf(20))
 		.doc("The maximum number of kv pairs contained in each sstable.")
 		.build();
 

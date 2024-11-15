@@ -155,6 +155,9 @@ public class SSTMetaInfo {
 
 	private Pair<byte[], Boolean> searchFromZeroLevel(byte[] key) {
 		List<SSTableInfo> tables = metaInfo.get(0);
+		if(tables == null) {
+			return Pair.of(null, false);
+		}
 		for (SSTableInfo table : tables) {
 			Pair<byte[], Boolean> pair = table.search(key);
 			if (pair.getF1()) {
