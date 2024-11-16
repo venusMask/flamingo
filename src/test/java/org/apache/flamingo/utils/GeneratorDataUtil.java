@@ -1,6 +1,8 @@
 package org.apache.flamingo.utils;
 
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.RandomUtils;
+import org.apache.flamingo.options.Options;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -12,7 +14,18 @@ import java.util.ArrayList;
  */
 public class GeneratorDataUtil {
 
-	private static final RandomStringUtils randomStringUtils = RandomStringUtils.secure();
+	private static final RandomStringUtils
+			randomStringUtils = RandomStringUtils.secure();
+
+	private static final int maxLevel = Integer.parseInt(Options.MaxLevel.getValue());
+
+	public static int generateRandomLevel() {
+		return RandomUtils.secure().randomInt(0, maxLevel);
+	}
+
+	public static String generateRandomString() {
+		return randomStringUtils.nextAlphabetic(1, 20);
+	}
 
 	public static ArrayList<String> generateRandomStrings(int count, int minLength, int maxLength) {
 		ArrayList<String> list = new ArrayList<>(count);

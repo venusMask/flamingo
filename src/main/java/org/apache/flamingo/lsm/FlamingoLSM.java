@@ -1,9 +1,10 @@
 package org.apache.flamingo.lsm;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.core.IDAssign;
-import org.apache.flamingo.core.LSMContext;
+import org.apache.flamingo.core.Context;
 import org.apache.flamingo.file.FileUtil;
 import org.apache.flamingo.memtable.MemoryTable;
 import org.apache.flamingo.memtable.skiplist.SLNode;
@@ -32,7 +33,7 @@ public class FlamingoLSM implements AutoCloseable {
 
 	private final TaskManager taskManager;
 
-	private final LSMContext context = LSMContext.getInstance();
+	private final Context context = Context.getInstance();
 
 	public FlamingoLSM() {
 		this.memoryTableThresholdSize = Integer.parseInt(Options.MemoryTableThresholdSize.getValue());
@@ -44,6 +45,12 @@ public class FlamingoLSM implements AutoCloseable {
 			this.memoryTable = new MemoryTable(this);
 		}
 		taskManager.start();
+		initContext();
+	}
+
+	private void initContext() {
+		ObjectMapper objectMapper = new ObjectMapper();
+		context.setObjectMapper(objectMapper);
 		// Set context
 		context.setSstMetadata(sstMetadata);
 	}

@@ -1,6 +1,8 @@
 package org.apache.flamingo.sstable;
 
 import junit.framework.TestCase;
+import org.apache.flamingo.options.Options;
+import org.apache.flamingo.utils.GeneratorDataUtil;
 
 import java.nio.charset.StandardCharsets;
 
@@ -10,6 +12,14 @@ import java.nio.charset.StandardCharsets;
  * @Version 1.0
  */
 public class SSTableTest extends TestCase {
+
+	private static final String dataDir = Options.DataDir.getValue();
+
+	public static SSTableInfo generateEmptySSTable() {
+		String fileName = GeneratorDataUtil.generateRandomString();
+		int level = GeneratorDataUtil.generateRandomLevel();
+		return new SSTableInfo(fileName, level);
+	}
 
 	public void testSSTableInfoSer() throws Exception {
 		String fileName = "/User/compact/a.sst";

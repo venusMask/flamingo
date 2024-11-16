@@ -1,19 +1,17 @@
 package org.apache.flamingo.sstable;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.flamingo.core.Context;
 import org.apache.flamingo.file.FileUtil;
 import org.apache.flamingo.utils.Pair;
 
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 
@@ -25,13 +23,27 @@ public class SSTableInfo {
 
 	public static final String SSTABLE = "sstable_";
 
-	public static final ObjectMapper ObjectMapper = new ObjectMapper();
+	private static final ObjectMapper ObjectMapper = Context.getInstance().getObjectMapper();
+
+	//////////////////////////////////////
+	//
+	// Meta Info About SST
+	//
+	//////////////////////////////////////
 
 	private String fileName;
 
 	private int level;
 
-	private MetaInfo metaInfo;
+	private String id;
+
+	private byte[] minimumValue;
+
+	private byte[] maximumValue;
+
+	private long count = 0;
+
+	private long createTime = System.currentTimeMillis();
 
 	public SSTableInfo() {
 	}
@@ -56,6 +68,13 @@ public class SSTableInfo {
 
 	public void delete() {
 		FileUtil.deleteFile(fileName);
+	}
+
+	public static JsonNode toJson(SSTableInfo tableInfo) throws IOException {
+		if(tableInfo != null) {
+			return ObjectMapper.valueToTree(tableInfo);
+		}
+		return null;
 	}
 
 	@Override
@@ -95,47 +114,4 @@ public class SSTableInfo {
 			throw new RuntimeException(e);
 		}
 	}
-
-	@Data
-	@Builder
-	@AllArgsConstructor
-	public static class MetaInfo {
-
-		private byte[] minimumValue;
-
-		private byte[] maximumValue;
-
-		private long count = 0;
-
-		private long createTime = System.currentTimeMillis();
-
-		private long lastUseTime = System.currentTimeMillis();
-
-		public MetaInfo() {
-		}
-
-		public static byte[] serialize(MetaInfo metaInfo) throws JsonProcessingException {
-			return ObjectMapper.writeValueAsBytes(metaInfo);
-		}
-
-		public static MetaInfo deserialize(byte[] byteArray) throws IOException {
-			return ObjectMapper.readValue(byteArray, MetaInfo.class);
-		}
-
-		public static MetaInfo create(byte[] min, byte[] max) {
-			return create(min, max, 0);
-		}
-
-		public static MetaInfo create(byte[] min, byte[] max, long count) {
-			return SSTableInfo.MetaInfo.builder()
-				.minimumValue(min)
-				.maximumValue(max)
-				.createTime(System.currentTimeMillis())
-				.lastUseTime(System.currentTimeMillis())
-				.count(count)
-				.build();
-		}
-
-	}
-
 }

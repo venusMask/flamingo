@@ -12,8 +12,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.IntFunction;
-import java.util.function.ToIntFunction;
 
 /**
  * Store sst meta information.
@@ -87,10 +85,10 @@ public class SSTMetaInfo {
 	}
 
 	private boolean hasOverlap(SSTableInfo newTable, SSTableInfo oldTable) {
-		byte[] newMin = newTable.getMetaInfo().getMinimumValue();
-		byte[] oldMin = oldTable.getMetaInfo().getMinimumValue();
-		byte[] newMax = newTable.getMetaInfo().getMaximumValue();
-		byte[] oldMax = oldTable.getMetaInfo().getMaximumValue();
+		byte[] newMin = newTable.getMinimumValue();
+		byte[] oldMin = oldTable.getMinimumValue();
+		byte[] newMax = newTable.getMaximumValue();
+		byte[] oldMax = oldTable.getMaximumValue();
 		return StringUtil.compareByteArrays(newMax, oldMin) >= 0 && StringUtil.compareByteArrays(oldMax, newMin) >= 0;
 	}
 
@@ -180,8 +178,8 @@ public class SSTMetaInfo {
 			List<SSTableInfo> level = metaInfo.get(levelNumber);
 			for (int j = level.size() - 1; j >= 0; j--) {
 				SSTableInfo mayBeSearchSST = level.get(j);
-				byte[] minimumValue = mayBeSearchSST.getMetaInfo().getMinimumValue();
-				byte[] maximumValue = mayBeSearchSST.getMetaInfo().getMaximumValue();
+				byte[] minimumValue = mayBeSearchSST.getMinimumValue();
+				byte[] maximumValue = mayBeSearchSST.getMaximumValue();
 				if (StringUtil.compareByteArrays(minimumValue, key) <= 0
 						&& StringUtil.compareByteArrays(maximumValue, key) >= 0) {
 					Pair<byte[], Boolean> searchPair = mayBeSearchSST.search(key);

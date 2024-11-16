@@ -33,6 +33,12 @@ public class Options {
 		.doc("The maximum number of kv pairs contained in each sstable.")
 		.build();
 
+	public static Option MaxLevel = Option.builder()
+			.key("max_level")
+			.value(String.valueOf(10))
+			.doc("Max Level")
+			.build();
+
 	public static void setDataDir(String dataDir) {
 		DataDir.setValue(dataDir);
 	}

@@ -3,7 +3,7 @@ package org.apache.flamingo.sstable;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.flamingo.core.LSMContext;
+import org.apache.flamingo.core.Context;
 import org.apache.flamingo.file.FileUtil;
 import org.apache.flamingo.options.Options;
 import org.apache.flamingo.utils.StringUtil;
@@ -17,7 +17,7 @@ import java.util.*;
 @Slf4j
 public class Compact {
 
-	private final LSMContext context = LSMContext.getInstance();
+	private final Context context = Context.getInstance();
 
 	private final SSTMetaInfo metaInfo = context.getSstMetadata();
 
@@ -78,8 +78,10 @@ public class Compact {
 					SSTableInfo sst = SSTableInfo.builder()
 						.fileName(targetFileName)
 						.level(targetLevel)
-						.metaInfo(SSTableInfo.MetaInfo.create(minKey, maxKey, entryCount))
-						.build();
+							.minimumValue(minKey)
+							.count(entryCount)
+							.maximumValue(maxKey)
+							.build();
 					newLowerLevelSST.add(sst);
 					targetFileName = FileUtil.getSSTFileName();
 					writer = createNewTargetWriter(targetFileName);
@@ -100,10 +102,12 @@ public class Compact {
 		}
 		if (entryCount > 0) {
 			SSTableInfo sst = SSTableInfo.builder()
-				.fileName(targetFileName)
-				.level(targetLevel)
-				.metaInfo(SSTableInfo.MetaInfo.create(minKey, maxKey, entryCount))
-				.build();
+					.fileName(targetFileName)
+					.level(targetLevel)
+					.minimumValue(minKey)
+					.count(entryCount)
+					.maximumValue(maxKey)
+					.build();
 			newLowerLevelSST.add(sst);
 		}
 		addMetaInfo(newLowerLevelSST, targetLevel);

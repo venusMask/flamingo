@@ -332,8 +332,9 @@ public class SkipList {
 				lastHead = lastHead.getRight();
 			}
 			byte[] maxKey = lastHead.getLeft().getKey();
-			SSTableInfo.MetaInfo metaInfo = SSTableInfo.MetaInfo.create(minKey, maxKey, count);
-			sst.setMetaInfo(metaInfo);
+			sst.setMinimumValue(minKey);
+			sst.setMaximumValue(maxKey);
+			sst.setCount(count);
 			channel.force(true);
 			outputStream.flush();
 			log.debug("Flush skip list to sst, file: {}, count: {}. Skip list minimum key: {}, maximum key: {}.",
