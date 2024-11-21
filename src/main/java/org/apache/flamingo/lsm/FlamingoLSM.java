@@ -56,9 +56,11 @@ public class FlamingoLSM implements AutoCloseable {
 			IDAssign.initSSTAssign(keyMaxOrder);
 			IDAssign.initWALAssign(valMaxOrder);
 			this.metaInfo = MetaInfo.deserialize(NamedUtil.getMetaDir());
-		} catch (FileAlreadyExistsException ignore) {
+		}
+		catch (FileAlreadyExistsException ignore) {
 			// Ignore exception
-		} catch (IOException e) {
+		}
+		catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
@@ -75,12 +77,13 @@ public class FlamingoLSM implements AutoCloseable {
 	}
 
 	public boolean delete(byte[] key) {
-        try {
-            memoryTable.delete(key);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        return true;
+		try {
+			memoryTable.delete(key);
+		}
+		catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		return true;
 	}
 
 	public byte[] search(byte[] key) {
@@ -149,12 +152,13 @@ public class FlamingoLSM implements AutoCloseable {
 	public void close() {
 		flush(true);
 		memoryTable.close();
-        try {
-            taskManager.close();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        log.debug("Closing FlamingoLSM Success!");
+		try {
+			taskManager.close();
+		}
+		catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
+		log.debug("Closing FlamingoLSM Success!");
 	}
 
 }

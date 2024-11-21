@@ -19,149 +19,149 @@ import java.util.*;
 @Slf4j
 public class MetaInfo {
 
-    private final Map<Integer, LevelMetaInfo> metaInfo = new HashMap<>();
+	private final Map<Integer, LevelMetaInfo> metaInfo = new HashMap<>();
 
-    private final ObjectMapper mapper = Context.getInstance().getObjectMapper();
+	private final ObjectMapper mapper = Context.getInstance().getObjectMapper();
 
-    private final String metaFileLocation;
+	private final String metaFileLocation;
 
-    @Getter
-    private final Compact compact;
+	@Getter
+	private final Compact compact;
 
-    private final int maxLevel;
+	private final int maxLevel;
 
-    public MetaInfo(String filePath) {
-        this.metaFileLocation = filePath;
-        this.maxLevel = Integer.parseInt(Options.MaxLevel.getValue());
-        this.compact = new Compact(this);
-        initEmptyLevel();
-    }
+	public MetaInfo(String filePath) {
+		this.metaFileLocation = filePath;
+		this.maxLevel = Integer.parseInt(Options.MaxLevel.getValue());
+		this.compact = new Compact(this);
+		initEmptyLevel();
+	}
 
-    public MetaInfo() {
-        this(NamedUtil.getMetaDir());
-    }
+	public MetaInfo() {
+		this(NamedUtil.getMetaDir());
+	}
 
-    private void initEmptyLevel() {
-        for (int level = 0; level < maxLevel; level++) {
-            metaInfo.put(level, new LevelMetaInfo(level));
-        }
-    }
+	private void initEmptyLevel() {
+		for (int level = 0; level < maxLevel; level++) {
+			metaInfo.put(level, new LevelMetaInfo(level));
+		}
+	}
 
-    /**
-     * Add entry point for SST information.
-     */
-    public void addTable(SSTMetaInfo table) {
-        checkSST(table);
-        int level = table.getLevel();
-        LevelMetaInfo levelMetaInfo = metaInfo.get(level);
-        levelMetaInfo.addTable(table);
-        if(levelMetaInfo.size() > maxLevelSize(level) && level != maxLevel - 1) {
-            compact(level);
-        }
-    }
+	/**
+	 * Add entry point for SST information.
+	 */
+	public void addTable(SSTMetaInfo table) {
+		checkSST(table);
+		int level = table.getLevel();
+		LevelMetaInfo levelMetaInfo = metaInfo.get(level);
+		levelMetaInfo.addTable(table);
+		if (levelMetaInfo.size() > maxLevelSize(level) && level != maxLevel - 1) {
+			compact(level);
+		}
+	}
 
-    public void removeTable(List<SSTMetaInfo> tables){
-        if(tables != null && !tables.isEmpty()) {
-            int level = tables.get(0).getLevel();
-            LevelMetaInfo levelMetaInfo = metaInfo.get(level);
-            levelMetaInfo.deleteTable(tables);
-        }
-        serialize();
-    }
+	public void removeTable(List<SSTMetaInfo> tables) {
+		if (tables != null && !tables.isEmpty()) {
+			int level = tables.get(0).getLevel();
+			LevelMetaInfo levelMetaInfo = metaInfo.get(level);
+			levelMetaInfo.deleteTable(tables);
+		}
+		serialize();
+	}
 
-    /**
-     * Merge data from the level layer
-     *
-     * @param level level number
-     */
-    private void compact(int level) {
-        LevelMetaInfo levelMetaInfo = metaInfo.get(level);
-        List<SSTMetaInfo> upperLevel = levelMetaInfo.chooseNeedCompactTable();
-        if(upperLevel.isEmpty()) {
-            serialize();
-            throw new NullPointerException("Upper Level is Empty!");
-        }
-        List<SSTMetaInfo> lowerLevel = getOverlapTables(upperLevel, level + 1);
-        compact.majorCompact(upperLevel, lowerLevel);
-    }
+	/**
+	 * Merge data from the level layer
+	 * @param level level number
+	 */
+	private void compact(int level) {
+		LevelMetaInfo levelMetaInfo = metaInfo.get(level);
+		List<SSTMetaInfo> upperLevel = levelMetaInfo.chooseNeedCompactTable();
+		if (upperLevel.isEmpty()) {
+			serialize();
+			throw new NullPointerException("Upper Level is Empty!");
+		}
+		List<SSTMetaInfo> lowerLevel = getOverlapTables(upperLevel, level + 1);
+		compact.majorCompact(upperLevel, lowerLevel);
+	}
 
-    private List<SSTMetaInfo> getOverlapTables(List<SSTMetaInfo> upperTables, int nextLevel) {
-        LevelMetaInfo levelMetaInfo = metaInfo.get(nextLevel);
-        ArrayList<SSTMetaInfo> lowerTable = new ArrayList<>();
-        upperTables.forEach(table -> {
-            List<SSTMetaInfo> overlapTables = levelMetaInfo.getOverlapTables(table);
-            if(!overlapTables.isEmpty()) {
-                lowerTable.addAll(overlapTables);
-            }
-        });
-        return lowerTable;
-    }
+	private List<SSTMetaInfo> getOverlapTables(List<SSTMetaInfo> upperTables, int nextLevel) {
+		LevelMetaInfo levelMetaInfo = metaInfo.get(nextLevel);
+		ArrayList<SSTMetaInfo> lowerTable = new ArrayList<>();
+		upperTables.forEach(table -> {
+			List<SSTMetaInfo> overlapTables = levelMetaInfo.getOverlapTables(table);
+			if (!overlapTables.isEmpty()) {
+				lowerTable.addAll(overlapTables);
+			}
+		});
+		return lowerTable;
+	}
 
-    /**
-     * 计算每层sst的数量阈值
-     */
-    public int maxLevelSize(int level) {
-        return 2 << level;
-    }
+	/**
+	 * 计算每层sst的数量阈值
+	 */
+	public int maxLevelSize(int level) {
+		return 2 << level;
+	}
 
-    public byte[] search(byte[] key) {
-        for (int level = 0; level < maxLevel; level++) {
-            LevelMetaInfo levelMetaInfo = metaInfo.get(level);
-            Pair<byte[], Boolean> pair = levelMetaInfo.search(key);
-            if(pair.getF1()) {
-                return pair.getF0();
-            }
-        }
-        return null;
-    }
+	public byte[] search(byte[] key) {
+		for (int level = 0; level < maxLevel; level++) {
+			LevelMetaInfo levelMetaInfo = metaInfo.get(level);
+			Pair<byte[], Boolean> pair = levelMetaInfo.search(key);
+			if (pair.getF1()) {
+				return pair.getF0();
+			}
+		}
+		return null;
+	}
 
-    public void serialize() {
-        ObjectNode node = mapper.createObjectNode();
-        for (int level = 0; level < maxLevel; level++) {
-            LevelMetaInfo levelMetaInfo = metaInfo.get(level);
-            ArrayNode serialized = levelMetaInfo.serialize();
-            if(serialized != null) {
-                node.set(String.valueOf(level), serialized);
-            }
-        }
-        try (FileWriter fileWriter = new FileWriter(metaFileLocation)) {
-            String prettyString = mapper
-                    .writerWithDefaultPrettyPrinter()
-                    .writeValueAsString(node);
-            fileWriter.write(prettyString);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
+	public void serialize() {
+		ObjectNode node = mapper.createObjectNode();
+		for (int level = 0; level < maxLevel; level++) {
+			LevelMetaInfo levelMetaInfo = metaInfo.get(level);
+			ArrayNode serialized = levelMetaInfo.serialize();
+			if (serialized != null) {
+				node.set(String.valueOf(level), serialized);
+			}
+		}
+		try (FileWriter fileWriter = new FileWriter(metaFileLocation)) {
+			String prettyString = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(node);
+			fileWriter.write(prettyString);
+		}
+		catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
 
-    public static MetaInfo deserialize(String metaFile) {
-        ObjectMapper mapper = Context.getInstance().getObjectMapper();
-        int maxLevel = Integer.parseInt(Options.MaxLevel.getValue());
-        File file = new File(metaFile);
-        try {
-            MetaInfo metaInfo = new MetaInfo();
-            JsonNode jsonObject = mapper.readTree(file);
-            for (int level = 0; level < maxLevel; level++) {
-                JsonNode levelInfo = jsonObject.get(level);
-                if(levelInfo != null) {
-                    LevelMetaInfo levelMetaInfo = metaInfo.metaInfo.get(level);
-                    Iterator<JsonNode> elements = levelInfo.elements();
-                    while (elements.hasNext()) {
-                        JsonNode node = elements.next();
-                        SSTMetaInfo info = SSTMetaInfo.fromJSON(node);
-                        levelMetaInfo.addTable(info);
-                    }
-                }
-            }
-            return metaInfo;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
+	public static MetaInfo deserialize(String metaFile) {
+		ObjectMapper mapper = Context.getInstance().getObjectMapper();
+		int maxLevel = Integer.parseInt(Options.MaxLevel.getValue());
+		File file = new File(metaFile);
+		try {
+			MetaInfo metaInfo = new MetaInfo();
+			JsonNode jsonObject = mapper.readTree(file);
+			for (int level = 0; level < maxLevel; level++) {
+				JsonNode levelInfo = jsonObject.get(level);
+				if (levelInfo != null) {
+					LevelMetaInfo levelMetaInfo = metaInfo.metaInfo.get(level);
+					Iterator<JsonNode> elements = levelInfo.elements();
+					while (elements.hasNext()) {
+						JsonNode node = elements.next();
+						SSTMetaInfo info = SSTMetaInfo.fromJSON(node);
+						levelMetaInfo.addTable(info);
+					}
+				}
+			}
+			return metaInfo;
+		}
+		catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
 
-    private void checkSST(SSTMetaInfo sst) {
-        if(sst == null || sst.getLevel() >= maxLevel) {
-            throw new RuntimeException("Error sst be added!, info: " + (sst == null ? "null" : sst));
-        }
-    }
+	private void checkSST(SSTMetaInfo sst) {
+		if (sst == null || sst.getLevel() >= maxLevel) {
+			throw new RuntimeException("Error sst be added!, info: " + (sst == null ? "null" : sst));
+		}
+	}
+
 }

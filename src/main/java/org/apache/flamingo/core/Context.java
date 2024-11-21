@@ -18,9 +18,11 @@ public class Context {
 
 	private static final Context INSTANCE = new Context();
 
-	private Context() {}
+	private Context() {
+	}
 
 	public static Context getInstance() {
 		return INSTANCE;
 	}
+
 }

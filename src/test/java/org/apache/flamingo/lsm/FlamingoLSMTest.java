@@ -19,51 +19,43 @@ public class FlamingoLSMTest extends TestCase {
 		assert cap == null;
 	}
 
-	public void testMath() {
-		System.out.println(2 << 0);
-		System.out.println(2 << 1);
-		System.out.println(2 << 2);
+	public void testLSMAdd() {
+		int pariSize = 10000;
+		try (FlamingoLSM lsm = new FlamingoLSM()) {
+			for (int i = 0; i < pariSize; i++) {
+				lsm.add(StringUtil.fromString(String.valueOf(i)), StringUtil.fromString(String.valueOf(i)));
+			}
+		}
+		catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
-    public void testLSMAdd() {
-		int pariSize = 10000;
-        try (FlamingoLSM lsm = new FlamingoLSM()) {
-            for (int i = 0; i < pariSize; i++) {
-				lsm.add(
-						StringUtil.fromString(String.valueOf(i)),
-						StringUtil.fromString(String.valueOf(i))
-				);
-			}
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-//	public void testPipeline() throws Exception {
-//		String dirValue = Options.DataDir.getValue();
-//		Path path = Paths.get(dirValue);
-//		FileUtil.deleteDirectory(path);
-//		Files.createDirectory(path);
-//		try (FlamingoLSM lsm = new FlamingoLSM()) {
-//			for (int i = 0; i < 30; i++) {
-//				lsm.add(
-//						StringUtil.fromString(String.valueOf(i)),
-//						StringUtil.fromString(String.valueOf(i))
-//				);
-//			}
-//			byte[] search_1 = lsm.search(StringUtil.fromString(String.valueOf(1)));
-//			assertKey(search_1, "1");
-//
-//			byte[] search_10 = lsm.search(StringUtil.fromString(String.valueOf(1)));
-//			assertKey(search_10, "10");
-//
-//			byte[] search_29 = lsm.search(StringUtil.fromString(String.valueOf(1)));
-//			assertKey(search_29, "29");
-//
-//			byte[] search_30 = lsm.search(StringUtil.fromString(String.valueOf(1)));
-//			assertNotKey(search_29, "30");
-//		}
-//	}
+	// public void testPipeline() throws Exception {
+	// String dirValue = Options.DataDir.getValue();
+	// Path path = Paths.get(dirValue);
+	// FileUtil.deleteDirectory(path);
+	// Files.createDirectory(path);
+	// try (FlamingoLSM lsm = new FlamingoLSM()) {
+	// for (int i = 0; i < 30; i++) {
+	// lsm.add(
+	// StringUtil.fromString(String.valueOf(i)),
+	// StringUtil.fromString(String.valueOf(i))
+	// );
+	// }
+	// byte[] search_1 = lsm.search(StringUtil.fromString(String.valueOf(1)));
+	// assertKey(search_1, "1");
+	//
+	// byte[] search_10 = lsm.search(StringUtil.fromString(String.valueOf(1)));
+	// assertKey(search_10, "10");
+	//
+	// byte[] search_29 = lsm.search(StringUtil.fromString(String.valueOf(1)));
+	// assertKey(search_29, "29");
+	//
+	// byte[] search_30 = lsm.search(StringUtil.fromString(String.valueOf(1)));
+	// assertNotKey(search_29, "30");
+	// }
+	// }
 
 	public void testSimpleOperation() throws Exception {
 		int len = 102;

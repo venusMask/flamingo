@@ -102,9 +102,9 @@ public class FileUtil {
 	}
 
 	public static void deleteIfEmpty(String filePath) {
-		if(filePath != null) {
+		if (filePath != null) {
 			File file = new File(filePath);
-			if(file.length() == 0) {
+			if (file.length() == 0) {
 				deleteFile(filePath);
 			}
 		}
@@ -116,7 +116,8 @@ public class FileUtil {
 				for (Path path : stream) {
 					if (Files.isDirectory(path)) {
 						deleteDirectory(path); // 递归删除子目录
-					} else {
+					}
+					else {
 						Files.delete(path); // 删除文件
 					}
 				}

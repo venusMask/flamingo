@@ -11,19 +11,19 @@ import java.nio.ByteBuffer;
 @EqualsAndHashCode
 public class VLogAddress {
 
-    private Long fieldID;
+	private Long fieldID;
 
-    private Long offset;
+	private Long offset;
 
-    public static VLogAddress from(Long fieldID, Long offset) {
-        return new VLogAddress(fieldID, offset);
-    }
+	public static VLogAddress from(Long fieldID, Long offset) {
+		return new VLogAddress(fieldID, offset);
+	}
 
-    public static byte[] serialize(VLogAddress address) {
-        ByteBuffer buffer = ByteBuffer.allocate(8 + 8);
-        buffer.putLong(address.fieldID);
-        buffer.putLong(address.offset);
-        return buffer.array();
-    }
+	public static byte[] serialize(VLogAddress address) {
+		ByteBuffer buffer = ByteBuffer.allocate(8 + 8);
+		buffer.putLong(address.fieldID);
+		buffer.putLong(address.offset);
+		return buffer.array();
+	}
 
 }

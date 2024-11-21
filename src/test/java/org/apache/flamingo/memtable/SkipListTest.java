@@ -32,12 +32,7 @@ public class SkipListTest extends TestCase {
 		boolean storeMode = GeneratorDataUtil.generateBoolean();
 		boolean deleted = GeneratorDataUtil.generateBoolean();
 		VLogAddress vLogAddress = generateVLogAddress();
-		return new SLNode(
-				StringUtil.fromString(key),
-				StringUtil.fromString(value),
-				storeMode,
-				vLogAddress,
-				deleted);
+		return new SLNode(StringUtil.fromString(key), StringUtil.fromString(value), storeMode, vLogAddress, deleted);
 	}
 
 	public List<SLNode> generateSLNodes(int total) {
@@ -61,9 +56,9 @@ public class SkipListTest extends TestCase {
 		List<SLNode> nodes = generateSLNodes(putNodeSize);
 
 		cost(s -> nodes.forEach(node -> {
-            node.setDeleted(false);
-            skipList.put(node);
-        }), "Put Node(" + putNodeSize + ")");
+			node.setDeleted(false);
+			skipList.put(node);
+		}), "Put Node(" + putNodeSize + ")");
 		log.info("Skip List graph:\n {}", skipList.graph());
 
 		int delSize = putNodeSize / 3;
@@ -86,7 +81,7 @@ public class SkipListTest extends TestCase {
 			for (int i = delSize; i < putNodeSize; i++) {
 				SLNode node = nodes.get(i);
 				SLNode search = skipList.search(node.getKey());
-				if(search == null) {
+				if (search == null) {
 					log.info("i = {}", i);
 				}
 				assert search != null;

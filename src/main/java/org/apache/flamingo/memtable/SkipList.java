@@ -59,21 +59,21 @@ public class SkipList {
 		this(0.5, 32);
 	}
 
-//	public void put(String key, String value) {
-//		put(StringUtil.fromString(key), StringUtil.fromString(value));
-//	}
-//
-//	public void put(byte[] key, byte[] value) {
-//		put(key, value, false);
-//	}
-//
-//	public void remove(String key) {
-//		remove(StringUtil.fromString(key));
-//	}
+	// public void put(String key, String value) {
+	// put(StringUtil.fromString(key), StringUtil.fromString(value));
+	// }
+	//
+	// public void put(byte[] key, byte[] value) {
+	// put(key, value, false);
+	// }
+	//
+	// public void remove(String key) {
+	// remove(StringUtil.fromString(key));
+	// }
 
-//	public void remove(byte[] key) {
-//		put(key, null, true);
-//	}
+	// public void remove(byte[] key) {
+	// put(key, null, true);
+	// }
 
 	public void remove(SLNode deleteNode) {
 		put(deleteNode);
@@ -282,7 +282,6 @@ public class SkipList {
 
 	/**
 	 * Flush memory data to disk and .
-	 *
 	 * @param sst target file
 	 */
 	public void flush(SSTMetaInfo sst) {

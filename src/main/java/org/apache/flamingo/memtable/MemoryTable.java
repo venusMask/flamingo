@@ -47,24 +47,16 @@ public class MemoryTable implements AutoCloseable {
 	}
 
 	/**
-	 * 写入流程:
-	 * 1: 首先写入value_log(当作持久化日志写入)
-	 * 2: 写入SkipList
-	 * 3: 判断SkipList的元素数量是否超过了阈值， 如果超过则溢血到Level_0层的磁盘.
-	 *
+	 * 写入流程: 1: 首先写入value_log(当作持久化日志写入) 2: 写入SkipList 3: 判断SkipList的元素数量是否超过了阈值，
+	 * 如果超过则溢血到Level_0层的磁盘.
 	 * @param key
 	 * @param value
 	 */
 	public void add(byte[] key, byte[] value) throws IOException {
 		VLogEntity entity = VLogEntity.from(key, value, false);
 		VLogAddress address = writer.write(entity);
-		SLNode node = SLNode.builder()
-				.key(key)
-				.value(value)
-				.address(address)
-				.deleted(false)
-				.build();
-		if(value.length > maxValueSize) {
+		SLNode node = SLNode.builder().key(key).value(value).address(address).deleted(false).build();
+		if (value.length > maxValueSize) {
 			node.setStoreMode(true);
 		}
 		skipList.put(node);
@@ -80,12 +72,7 @@ public class MemoryTable implements AutoCloseable {
 	public void delete(byte[] key) throws IOException {
 		VLogEntity entity = VLogEntity.from(key, null, true);
 		VLogAddress address = writer.write(entity);
-		SLNode node = SLNode.builder()
-				.key(key)
-				.address(address)
-				.deleted(true)
-				.storeMode(false)
-				.build();
+		SLNode node = SLNode.builder().key(key).address(address).deleted(true).storeMode(false).build();
 		skipList.put(node);
 	}
 
@@ -100,10 +87,10 @@ public class MemoryTable implements AutoCloseable {
 		state = MemoryTableState.Immutable;
 		Pair<String, Long> pair = NamedUtil.getKeyFilePath();
 		SSTMetaInfo sst = SSTMetaInfo.builder()
-				.fileName(pair.getF0())
-				.id(String.valueOf(pair.getF1()))
-				.level(0)
-				.build();
+			.fileName(pair.getF0())
+			.id(String.valueOf(pair.getF1()))
+			.level(0)
+			.build();
 		skipList.flush(sst);
 	}
 

@@ -15,8 +15,7 @@ import java.util.Random;
  */
 public class GeneratorDataUtil {
 
-	private static final RandomStringUtils
-			randomStringUtils = RandomStringUtils.secure();
+	private static final RandomStringUtils randomStringUtils = RandomStringUtils.secure();
 
 	private static final Random random = new Random();
 

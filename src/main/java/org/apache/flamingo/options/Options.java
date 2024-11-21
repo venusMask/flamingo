@@ -34,16 +34,16 @@ public class Options {
 		.build();
 
 	public static Option MaxLevel = Option.builder()
-			.key("max_level")
-			.value(String.valueOf(10))
-			.doc("Max Level")
-			.build();
+		.key("max_level")
+		.value(String.valueOf(10))
+		.doc("Max Level")
+		.build();
 
 	public static Option MaxValueSize = Option.builder()
-			.key("max_value_size")
-			.value(String.valueOf(30))
-			.doc("Max Value Size")
-			.build();
+		.key("max_value_size")
+		.value(String.valueOf(30))
+		.doc("Max Value Size")
+		.build();
 
 	public static void setDataDir(String dataDir) {
 		DataDir.setValue(dataDir);

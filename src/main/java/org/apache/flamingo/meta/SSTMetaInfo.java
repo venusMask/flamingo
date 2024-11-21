@@ -46,14 +46,15 @@ public class SSTMetaInfo {
 
 	private long createTime = System.currentTimeMillis();
 
-	public SSTMetaInfo() {}
+	public SSTMetaInfo() {
+	}
 
 	public void delete() {
 		FileUtil.deleteFile(fileName);
 	}
 
 	public static JsonNode toJson(SSTMetaInfo tableInfo) throws IOException {
-		if(tableInfo != null) {
+		if (tableInfo != null) {
 			return ObjectMapper.valueToTree(tableInfo);
 		}
 		return null;
@@ -68,14 +69,14 @@ public class SSTMetaInfo {
 		long count = node.get("count").asLong();
 		long createTime = node.get("createTime").asLong();
 		return SSTMetaInfo.builder()
-				.fileName(fileName)
-				.level(level)
-				.id(id)
-				.minimumValue(StringUtil.fromString(minimumValue))
-				.maximumValue(StringUtil.fromString(maximumValue))
-				.count(count)
-				.createTime(createTime)
-				.build();
+			.fileName(fileName)
+			.level(level)
+			.id(id)
+			.minimumValue(StringUtil.fromString(minimumValue))
+			.maximumValue(StringUtil.fromString(maximumValue))
+			.count(count)
+			.createTime(createTime)
+			.build();
 	}
 
 	@Override
@@ -115,4 +116,5 @@ public class SSTMetaInfo {
 			throw new RuntimeException(e);
 		}
 	}
+
 }
