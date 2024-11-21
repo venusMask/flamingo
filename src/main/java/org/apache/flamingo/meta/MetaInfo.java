@@ -1,5 +1,6 @@
 package org.apache.flamingo.meta;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -10,6 +11,7 @@ import org.apache.flamingo.file.NamedUtil;
 import org.apache.flamingo.options.Options;
 import org.apache.flamingo.utils.Pair;
 
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
@@ -96,10 +98,10 @@ public class MetaInfo {
     }
 
     /**
-     * 计算每层sst的阈值
+     * 计算每层sst的数量阈值
      */
     public int maxLevelSize(int level) {
-        return 2;
+        return 2 << level;
     }
 
     public byte[] search(byte[] key) {
@@ -127,6 +129,31 @@ public class MetaInfo {
                     .writerWithDefaultPrettyPrinter()
                     .writeValueAsString(node);
             fileWriter.write(prettyString);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static MetaInfo deserialize(String metaFile) {
+        ObjectMapper mapper = Context.getInstance().getObjectMapper();
+        int maxLevel = Integer.parseInt(Options.MaxLevel.getValue());
+        File file = new File(metaFile);
+        try {
+            MetaInfo metaInfo = new MetaInfo();
+            JsonNode jsonObject = mapper.readTree(file);
+            for (int level = 0; level < maxLevel; level++) {
+                JsonNode levelInfo = jsonObject.get(level);
+                if(levelInfo != null) {
+                    LevelMetaInfo levelMetaInfo = metaInfo.metaInfo.get(level);
+                    Iterator<JsonNode> elements = levelInfo.elements();
+                    while (elements.hasNext()) {
+                        JsonNode node = elements.next();
+                        SSTMetaInfo info = SSTMetaInfo.fromJSON(node);
+                        levelMetaInfo.addTable(info);
+                    }
+                }
+            }
+            return metaInfo;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

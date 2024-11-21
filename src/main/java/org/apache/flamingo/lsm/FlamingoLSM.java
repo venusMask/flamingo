@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.bean.SLNode;
 import org.apache.flamingo.core.Context;
+import org.apache.flamingo.core.IDAssign;
 import org.apache.flamingo.file.FileUtil;
 import org.apache.flamingo.file.NamedUtil;
 import org.apache.flamingo.memtable.MemoryTable;
@@ -29,7 +30,7 @@ public class FlamingoLSM implements AutoCloseable {
 
 	private MemoryTable memoryTable;
 
-	private final MetaInfo metaInfo;
+	private MetaInfo metaInfo;
 
 	private final TaskManager taskManager;
 
@@ -38,10 +39,10 @@ public class FlamingoLSM implements AutoCloseable {
 		Context.getInstance().setObjectMapper(objectMapper);
 		this.memoryTableThresholdSize = Integer.parseInt(Options.MemoryTableThresholdSize.getValue());
 		this.taskManager = new TaskManager();
+		this.memoryTable = new MemoryTable();
 		this.metaInfo = new MetaInfo();
 		Context.getInstance().setMetaInfo(metaInfo);
 		init();
-		this.memoryTable = new MemoryTable();
 		taskManager.start();
 	}
 
@@ -50,6 +51,11 @@ public class FlamingoLSM implements AutoCloseable {
 			Files.createDirectories(Paths.get(NamedUtil.getKeyDir()));
 			Files.createDirectories(Paths.get(NamedUtil.getValueDir()));
 			FileUtil.checkFileExistsOrCreate(NamedUtil.getMetaDir());
+			int keyMaxOrder = FileUtil.getMaxOrder(NamedUtil.getKeyDir(), "(\\d+)\\.sst");
+			int valMaxOrder = FileUtil.getMaxOrder(NamedUtil.getValueDir(), "(\\d+)\\.wal");
+			IDAssign.initSSTAssign(keyMaxOrder);
+			IDAssign.initWALAssign(valMaxOrder);
+			this.metaInfo = MetaInfo.deserialize(NamedUtil.getMetaDir());
 		} catch (FileAlreadyExistsException ignore) {
 			// Ignore exception
 		} catch (IOException e) {

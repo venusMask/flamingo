@@ -1,5 +1,6 @@
 package org.apache.flamingo.file;
 
+import org.apache.flamingo.core.IDAssign;
 import org.apache.flamingo.options.Options;
 import org.apache.flamingo.utils.Pair;
 import org.apache.flamingo.writer.VLogWriter;
@@ -23,15 +24,15 @@ public class NamedUtil {
     }
 
     public static Pair<String, Long> getValueFilePath() {
-        long millis = System.currentTimeMillis();
-        String fileName = getValueDir() + "/" + String.format(VLogWriter.ACTIVE, millis);
-        return Pair.of(fileName, millis);
+        String id = IDAssign.getWALNextID();
+        String fileName = getValueDir() + "/" + String.format(VLogWriter.ACTIVE, id);
+        return Pair.of(fileName, Long.parseLong(id));
     }
 
     public static Pair<String, Long> getKeyFilePath() {
-        long millis = System.currentTimeMillis();
-        String fileName = getKeyDir() + "/" + millis + ".sst";
-        return Pair.of(fileName, millis);
+        String id = IDAssign.getSSTNextID();
+        String fileName = getKeyDir() + "/" + id + ".sst";
+        return Pair.of(fileName, Long.parseLong(id));
     }
 
 

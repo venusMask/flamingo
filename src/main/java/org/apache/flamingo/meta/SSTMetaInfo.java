@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.core.Context;
 import org.apache.flamingo.file.FileUtil;
 import org.apache.flamingo.utils.Pair;
+import org.apache.flamingo.utils.StringUtil;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -56,6 +57,25 @@ public class SSTMetaInfo {
 			return ObjectMapper.valueToTree(tableInfo);
 		}
 		return null;
+	}
+
+	public static SSTMetaInfo fromJSON(JsonNode node) {
+		String fileName = node.get("fileName").asText();
+		int level = node.get("level").asInt();
+		String id = node.get("id").asText();
+		String minimumValue = node.get("minimumValue").asText();
+		String maximumValue = node.get("maximumValue").asText();
+		long count = node.get("count").asLong();
+		long createTime = node.get("createTime").asLong();
+		return SSTMetaInfo.builder()
+				.fileName(fileName)
+				.level(level)
+				.id(id)
+				.minimumValue(StringUtil.fromString(minimumValue))
+				.maximumValue(StringUtil.fromString(maximumValue))
+				.count(count)
+				.createTime(createTime)
+				.build();
 	}
 
 	@Override

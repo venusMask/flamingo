@@ -16,7 +16,7 @@ import java.io.RandomAccessFile;
 @Getter
 public class VLogWriter {
 
-    public static final String ACTIVE = "v_active_%d.wal";
+    public static final String ACTIVE = "v_active_%s.wal";
 
     public static final String SILENCE = "v_silence_%d.wal";
 

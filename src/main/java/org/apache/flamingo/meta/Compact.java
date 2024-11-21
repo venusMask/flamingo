@@ -162,7 +162,6 @@ public class Compact {
         OutputStream outputStream;
         try {
             outputStream = Files.newOutputStream(Paths.get(targetFileName));
-            log.info("Create Target File Name: {}", targetFileName);
         } catch (IOException e) {
             throw new RuntimeException("Create file " + targetFileName + " failed", e);
         }

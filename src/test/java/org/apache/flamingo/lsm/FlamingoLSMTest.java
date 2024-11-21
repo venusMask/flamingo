@@ -1,16 +1,11 @@
 package org.apache.flamingo.lsm;
 
 import junit.framework.TestCase;
-import org.apache.flamingo.file.FileUtil;
-import org.apache.flamingo.options.Options;
 import org.apache.flamingo.utils.GeneratorDataUtil;
 import org.apache.flamingo.utils.StringUtil;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -22,6 +17,12 @@ public class FlamingoLSMTest extends TestCase {
 
 	private void assertNotKey(byte[] cap, String key) {
 		assert cap == null;
+	}
+
+	public void testMath() {
+		System.out.println(2 << 0);
+		System.out.println(2 << 1);
+		System.out.println(2 << 2);
 	}
 
     public void testLSMAdd() {

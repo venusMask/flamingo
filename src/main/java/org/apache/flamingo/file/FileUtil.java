@@ -18,18 +18,6 @@ import java.util.regex.Pattern;
 @Slf4j
 public class FileUtil {
 
-	public static String getSSTFileName() {
-		return Options.DataDir.getValue() + File.separator + SSTMetaInfo.SSTABLE + IDAssign.getSSTNextID() + ".sst";
-	}
-
-	public static String getWalActiveName() {
-		return WALWriter.ACTIVE + IDAssign.getWALNextID() + ".wal";
-	}
-
-	public static String getMetaInfoPath() {
-		return getDataDirFilePath("meta_info" + ".meta");
-	}
-
 	public static String getDataDirPath() {
 		return Options.DataDir.getValue();
 	}
@@ -70,13 +58,9 @@ public class FileUtil {
 			}
 		}
 		catch (IOException e) {
-			System.err.println("读取目录时发生错误: " + e.getMessage());
+			System.err.println("Read dir error : " + e.getMessage());
 		}
 		return maxNum + 1;
-	}
-
-	public static int getMaxOrder(String regex) {
-		return getMaxOrder(getDataDirPath(), regex);
 	}
 
 	public static boolean checkFileExists(String file, boolean throwException) {
