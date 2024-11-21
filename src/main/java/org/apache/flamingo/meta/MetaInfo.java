@@ -1,9 +1,12 @@
-package org.apache.flamingo.sstable;
+package org.apache.flamingo.meta;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.flamingo.core.Context;
+import org.apache.flamingo.file.NamedUtil;
 import org.apache.flamingo.options.Options;
 import org.apache.flamingo.utils.Pair;
 
@@ -12,23 +15,28 @@ import java.io.IOException;
 import java.util.*;
 
 @Slf4j
-public class DiskMetaInfo {
+public class MetaInfo {
 
     private final Map<Integer, LevelMetaInfo> metaInfo = new HashMap<>();
 
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = Context.getInstance().getObjectMapper();
 
     private final String metaFileLocation;
 
+    @Getter
     private final Compact compact;
 
     private final int maxLevel;
 
-    public DiskMetaInfo(String filePath) {
+    public MetaInfo(String filePath) {
         this.metaFileLocation = filePath;
         this.maxLevel = Integer.parseInt(Options.MaxLevel.getValue());
-        this.compact = new Compact();
+        this.compact = new Compact(this);
         initEmptyLevel();
+    }
+
+    public MetaInfo() {
+        this(NamedUtil.getMetaDir());
     }
 
     private void initEmptyLevel() {
@@ -37,17 +45,26 @@ public class DiskMetaInfo {
         }
     }
 
-    public void addTable(SSTableInfo table) {
+    /**
+     * Add entry point for SST information.
+     */
+    public void addTable(SSTMetaInfo table) {
+        checkSST(table);
         int level = table.getLevel();
         LevelMetaInfo levelMetaInfo = metaInfo.get(level);
-        if(levelMetaInfo == null) {
-            log.debug("Error level: {}", level);
-        }
         levelMetaInfo.addTable(table);
-        if(levelMetaInfo.size() > maxLevelSize(level)) {
-            // TODO Compact
-            log.debug("Begin Compact ...");
+        if(levelMetaInfo.size() > maxLevelSize(level) && level != maxLevel - 1) {
+            compact(level);
         }
+    }
+
+    public void removeTable(List<SSTMetaInfo> tables){
+        if(tables != null && !tables.isEmpty()) {
+            int level = tables.get(0).getLevel();
+            LevelMetaInfo levelMetaInfo = metaInfo.get(level);
+            levelMetaInfo.deleteTable(tables);
+        }
+        serialize();
     }
 
     /**
@@ -57,16 +74,20 @@ public class DiskMetaInfo {
      */
     private void compact(int level) {
         LevelMetaInfo levelMetaInfo = metaInfo.get(level);
-        List<SSTableInfo> upperLevel = levelMetaInfo.chooseNeedCompactTable();
-        List<SSTableInfo> lowerLevel = getOverlapTables(upperLevel, 1);
+        List<SSTMetaInfo> upperLevel = levelMetaInfo.chooseNeedCompactTable();
+        if(upperLevel.isEmpty()) {
+            serialize();
+            throw new NullPointerException("Upper Level is Empty!");
+        }
+        List<SSTMetaInfo> lowerLevel = getOverlapTables(upperLevel, level + 1);
         compact.majorCompact(upperLevel, lowerLevel);
     }
 
-    private List<SSTableInfo> getOverlapTables(List<SSTableInfo> upperTables, int nextLevel) {
+    private List<SSTMetaInfo> getOverlapTables(List<SSTMetaInfo> upperTables, int nextLevel) {
         LevelMetaInfo levelMetaInfo = metaInfo.get(nextLevel);
-        ArrayList<SSTableInfo> lowerTable = new ArrayList<>();
+        ArrayList<SSTMetaInfo> lowerTable = new ArrayList<>();
         upperTables.forEach(table -> {
-            List<SSTableInfo> overlapTables = levelMetaInfo.getOverlapTables(table);
+            List<SSTMetaInfo> overlapTables = levelMetaInfo.getOverlapTables(table);
             if(!overlapTables.isEmpty()) {
                 lowerTable.addAll(overlapTables);
             }
@@ -74,11 +95,14 @@ public class DiskMetaInfo {
         return lowerTable;
     }
 
+    /**
+     * 计算每层sst的阈值
+     */
     public int maxLevelSize(int level) {
         return 2;
     }
 
-    private byte[] search(byte[] key) {
+    public byte[] search(byte[] key) {
         for (int level = 0; level < maxLevel; level++) {
             LevelMetaInfo levelMetaInfo = metaInfo.get(level);
             Pair<byte[], Boolean> pair = levelMetaInfo.search(key);
@@ -89,7 +113,7 @@ public class DiskMetaInfo {
         return null;
     }
 
-    public void serialize() throws IOException {
+    public void serialize() {
         ObjectNode node = mapper.createObjectNode();
         for (int level = 0; level < maxLevel; level++) {
             LevelMetaInfo levelMetaInfo = metaInfo.get(level);
@@ -98,11 +122,19 @@ public class DiskMetaInfo {
                 node.set(String.valueOf(level), serialized);
             }
         }
-        String prettyString = mapper
-                .writerWithDefaultPrettyPrinter()
-                .writeValueAsString(node);
         try (FileWriter fileWriter = new FileWriter(metaFileLocation)) {
+            String prettyString = mapper
+                    .writerWithDefaultPrettyPrinter()
+                    .writeValueAsString(node);
             fileWriter.write(prettyString);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void checkSST(SSTMetaInfo sst) {
+        if(sst == null || sst.getLevel() >= maxLevel) {
+            throw new RuntimeException("Error sst be added!, info: " + (sst == null ? "null" : sst));
         }
     }
 }

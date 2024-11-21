@@ -1,11 +1,11 @@
 package org.apache.flamingo.utils;
 
-import org.apache.flamingo.sstable.SSTMetaInfo;
+import org.apache.flamingo.meta.SSTMetaInfo;
 
 public class SSTMetaInfoUtil {
 
 	public static SSTMetaInfo parseMetaFromFile(String filePath) {
-		return new SSTMetaInfo(filePath);
+		return new SSTMetaInfo();
 	}
 
 }

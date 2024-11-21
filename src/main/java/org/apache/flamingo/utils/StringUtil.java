@@ -35,4 +35,12 @@ public class StringUtil {
 		return Integer.compare(array1.length, array2.length);
 	}
 
+	public static byte fromBool(boolean flag) {
+		return flag ? (byte) 1 : (byte) 0;
+	}
+
+	public static boolean fromByte(byte b) {
+		return b == (byte) 1;
+	}
+
 }

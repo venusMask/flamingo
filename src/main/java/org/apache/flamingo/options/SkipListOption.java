@@ -1,4 +1,4 @@
-package org.apache.flamingo.memtable.skiplist;
+package org.apache.flamingo.options;
 
 import lombok.Builder;
 import lombok.Getter;

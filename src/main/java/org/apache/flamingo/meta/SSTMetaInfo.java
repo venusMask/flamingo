@@ -1,4 +1,4 @@
-package org.apache.flamingo.sstable;
+package org.apache.flamingo.meta;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,7 +19,7 @@ import java.util.Arrays;
 @Data
 @Builder
 @AllArgsConstructor
-public class SSTableInfo {
+public class SSTMetaInfo {
 
 	public static final String SSTABLE = "sstable_";
 
@@ -45,32 +45,13 @@ public class SSTableInfo {
 
 	private long createTime = System.currentTimeMillis();
 
-	public SSTableInfo() {
-	}
-
-	public SSTableInfo(String filePath, int level) {
-		this.fileName = filePath;
-		this.level = level;
-	}
-
-	public static byte[] serialize(SSTableInfo ssTable) throws IOException {
-		return ObjectMapper.writeValueAsBytes(ssTable);
-	}
-
-	public static SSTableInfo deserialize(byte[] bytes) throws IOException {
-		return ObjectMapper.readValue(bytes, SSTableInfo.class);
-	}
-
-	public static SSTableInfo create(int level) {
-		String fileName = FileUtil.getSSTFileName();
-		return new SSTableInfo(fileName, level);
-	}
+	public SSTMetaInfo() {}
 
 	public void delete() {
 		FileUtil.deleteFile(fileName);
 	}
 
-	public static JsonNode toJson(SSTableInfo tableInfo) throws IOException {
+	public static JsonNode toJson(SSTMetaInfo tableInfo) throws IOException {
 		if(tableInfo != null) {
 			return ObjectMapper.valueToTree(tableInfo);
 		}

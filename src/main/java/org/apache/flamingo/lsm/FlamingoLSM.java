@@ -3,19 +3,19 @@ package org.apache.flamingo.lsm;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.flamingo.core.IDAssign;
+import org.apache.flamingo.bean.SLNode;
 import org.apache.flamingo.core.Context;
 import org.apache.flamingo.file.FileUtil;
+import org.apache.flamingo.file.NamedUtil;
 import org.apache.flamingo.memtable.MemoryTable;
-import org.apache.flamingo.memtable.skiplist.SLNode;
 import org.apache.flamingo.options.Options;
-import org.apache.flamingo.sstable.SSTMetaInfo;
-import org.apache.flamingo.sstable.SSTableInfo;
+import org.apache.flamingo.meta.MetaInfo;
 import org.apache.flamingo.task.MemoryTableTask;
 import org.apache.flamingo.task.TaskManager;
 import org.apache.flamingo.wal.WALWriter;
 
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -29,53 +29,52 @@ public class FlamingoLSM implements AutoCloseable {
 
 	private MemoryTable memoryTable;
 
-	private final SSTMetaInfo sstMetadata;
+	private final MetaInfo metaInfo;
 
 	private final TaskManager taskManager;
 
-	private final Context context = Context.getInstance();
-
 	public FlamingoLSM() {
+		ObjectMapper objectMapper = new ObjectMapper();
+		Context.getInstance().setObjectMapper(objectMapper);
 		this.memoryTableThresholdSize = Integer.parseInt(Options.MemoryTableThresholdSize.getValue());
 		this.taskManager = new TaskManager();
-		this.sstMetadata = new SSTMetaInfo();
-		initMeta();
-		restoreFromWAL();
-		if (this.memoryTable == null) {
-			this.memoryTable = new MemoryTable(this);
-		}
+		this.metaInfo = new MetaInfo();
+		Context.getInstance().setMetaInfo(metaInfo);
+		init();
+		this.memoryTable = new MemoryTable();
 		taskManager.start();
-		initContext();
 	}
 
-	private void initContext() {
-		ObjectMapper objectMapper = new ObjectMapper();
-		context.setObjectMapper(objectMapper);
-		// Set context
-		context.setSstMetadata(sstMetadata);
+	private void init() {
+		try {
+			Files.createDirectories(Paths.get(NamedUtil.getKeyDir()));
+			Files.createDirectories(Paths.get(NamedUtil.getValueDir()));
+			FileUtil.checkFileExistsOrCreate(NamedUtil.getMetaDir());
+		} catch (FileAlreadyExistsException ignore) {
+			// Ignore exception
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
-	public void initMeta() {
-		String sstRegex = SSTableInfo.SSTABLE + "(\\d+)\\.sst";
-		IDAssign.initSSTAssign(FileUtil.getMaxOrder(sstRegex));
-		String walRegex = WALWriter.ACTIVE + "(\\d+)\\.wal";
-		IDAssign.initWALAssign(FileUtil.getMaxOrder(walRegex));
-	}
-
-	public boolean add(byte[] key, byte[] value) {
+	public boolean add(byte[] key, byte[] value) throws IOException {
 		memoryTable.add(key, value);
 		if (memoryTable.size() > memoryTableThresholdSize) {
 			MemoryTableTask task = new MemoryTableTask(memoryTable);
 			taskManager.addTask(task);
 			log.debug("Switch memory table");
-			memoryTable = new MemoryTable(this);
+			memoryTable = new MemoryTable();
 		}
 		return true;
 	}
 
 	public boolean delete(byte[] key) {
-		memoryTable.delete(key);
-		return true;
+        try {
+            memoryTable.delete(key);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return true;
 	}
 
 	public byte[] search(byte[] key) {
@@ -84,7 +83,7 @@ public class FlamingoLSM implements AutoCloseable {
 			return null;
 		}
 		// Search from disk
-		return sstMetadata.search(key);
+		return metaInfo.search(key);
 	}
 
 	/**
@@ -136,16 +135,20 @@ public class FlamingoLSM implements AutoCloseable {
 		MemoryTableTask task = new MemoryTableTask(memoryTable);
 		taskManager.addTask(task);
 		if (!terminal) {
-			memoryTable = new MemoryTable(this);
+			memoryTable = new MemoryTable();
 		}
 	}
 
 	@Override
-	public void close() throws Exception {
+	public void close() {
 		flush(true);
 		memoryTable.close();
-		taskManager.close();
-		log.debug("Closing FlamingoLSM Success!");
+        try {
+            taskManager.close();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        log.debug("Closing FlamingoLSM Success!");
 	}
 
 }

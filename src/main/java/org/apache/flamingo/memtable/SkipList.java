@@ -1,13 +1,14 @@
-package org.apache.flamingo.memtable.skiplist;
+package org.apache.flamingo.memtable;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.annotation.ForTest;
-import org.apache.flamingo.memtable.MemoryTable;
-import org.apache.flamingo.sstable.SSTableInfo;
+import org.apache.flamingo.bean.SLNode;
+import org.apache.flamingo.core.Context;
+import org.apache.flamingo.options.SkipListOption;
+import org.apache.flamingo.meta.SSTMetaInfo;
 import org.apache.flamingo.utils.StringUtil;
 
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -58,32 +59,37 @@ public class SkipList {
 		this(0.5, 32);
 	}
 
-	public void put(String key, String value) {
-		put(StringUtil.fromString(key), StringUtil.fromString(value));
+//	public void put(String key, String value) {
+//		put(StringUtil.fromString(key), StringUtil.fromString(value));
+//	}
+//
+//	public void put(byte[] key, byte[] value) {
+//		put(key, value, false);
+//	}
+//
+//	public void remove(String key) {
+//		remove(StringUtil.fromString(key));
+//	}
+
+//	public void remove(byte[] key) {
+//		put(key, null, true);
+//	}
+
+	public void remove(SLNode deleteNode) {
+		put(deleteNode);
 	}
 
-	public void put(byte[] key, byte[] value) {
-		put(key, value, false);
-	}
-
-	public void remove(String key) {
-		remove(StringUtil.fromString(key));
-	}
-
-	public void remove(byte[] key) {
-		put(key, null, true);
-	}
-
-	private void put(byte[] key, byte[] value, boolean isDeleted) {
-		SLNode anchorNode = findPrev(key);
+	public void put(SLNode needAddNode) {
+		SLNode anchorNode = findPrev(needAddNode.getKey());
 		// The target node exists
-		if (Arrays.equals(key, anchorNode.getKey())) {
-			anchorNode.setDeleted(isDeleted);
-			anchorNode.setValue(value);
+		if (Arrays.equals(needAddNode.getKey(), anchorNode.getKey())) {
+			anchorNode.setDeleted(needAddNode.isDeleted());
+			anchorNode.setValue(needAddNode.getValue());
+			anchorNode.setStoreMode(needAddNode.isStoreMode());
+			anchorNode.setAddress(needAddNode.getAddress());
 			return;
 		}
-		SLNode insertNode = new SLNode(key, value, isDeleted);
-		afterInsert(anchorNode, insertNode);
+		afterInsert(anchorNode, needAddNode);
 		int currentLevel = 0;
 		while (random.nextDouble() < probability) {
 			// If it exceeds the height, a new top floor needs to be built
@@ -105,10 +111,10 @@ public class SkipList {
 			}
 			anchorNode = anchorNode.getUp();
 			// Index nodes do not require value values
-			SLNode e = new SLNode(key, null);
+			SLNode e = new SLNode(needAddNode.getKey(), null);
 			afterInsert(anchorNode, e);
-			vertical(e, insertNode);
-			insertNode = e;
+			vertical(e, needAddNode);
+			needAddNode = e;
 			currentLevel++;
 		}
 		size++;
@@ -120,7 +126,7 @@ public class SkipList {
 
 	public SLNode search(byte[] key) {
 		SLNode p = findPrev(key);
-		if (Arrays.equals(key, p.getKey())) {
+		if (Arrays.equals(key, p.getKey()) && !p.isDeleted()) {
 			return p;
 		}
 		else {
@@ -274,35 +280,12 @@ public class SkipList {
 		return builder.toString();
 	}
 
-	public static SkipList build(SkipListOption option, SSTableInfo ssTable) {
-		SkipList skipList = new SkipList(option);
-		try (FileInputStream fileInputStream = new FileInputStream(ssTable.getFileName())) {
-			FileChannel readChannel = fileInputStream.getChannel();
-			int available = fileInputStream.available();
-			ByteBuffer byteBuffer = ByteBuffer.allocate(available);
-			readChannel.read(byteBuffer);
-			byteBuffer.flip();
-			while (true) {
-				byte delByte = byteBuffer.get();
-				byte[] keyByte = MemoryTable.readByteBuffer(byteBuffer);
-				if (keyByte == null) {
-					break;
-				}
-				byte[] valueByte = MemoryTable.readByteBuffer(byteBuffer);
-				skipList.put(keyByte, valueByte, delByte == (byte) 1);
-			}
-			return skipList;
-		}
-		catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-	}
-
 	/**
-	 * Flush memory data to disk. [delete_flag k_len k_val v_len v_val]
+	 * Flush memory data to disk and .
+	 *
 	 * @param sst target file
 	 */
-	public void flush(SSTableInfo sst) {
+	public void flush(SSTMetaInfo sst) {
 		String fileName = sst.getFileName();
 		SLNode lastHead = getLastHead();
 		byte[] minKey = lastHead.getRight().getKey();
@@ -312,23 +295,8 @@ public class SkipList {
 			FileChannel channel = outputStream.getChannel();
 			while (lastHead.getRight() != null) {
 				count++;
-				byte isDeleted = lastHead.isDeleted() ? (byte) 1 : (byte) 0;
-				byte[] key = lastHead.getKey();
-				byte[] value = lastHead.getValue();
-				int kl = key.length;
-				int vl = value.length;
-				int totalLength = 1 + 4 + 4 + kl + vl;
-				ByteBuffer byteBuffer = ByteBuffer.allocate(totalLength);
-				byteBuffer.put(isDeleted);
-				byteBuffer.putInt(kl);
-				byteBuffer.put(key);
-				byteBuffer.putInt(vl);
-				byteBuffer.put(value);
-				byteBuffer.flip();
-				int written = channel.write(byteBuffer);
-				if (written != totalLength) {
-					throw new RuntimeException("Write less");
-				}
+				byte[] serialize = SLNode.serialize(lastHead);
+				channel.write(ByteBuffer.wrap(serialize));
 				lastHead = lastHead.getRight();
 			}
 			byte[] maxKey = lastHead.getLeft().getKey();
@@ -339,6 +307,7 @@ public class SkipList {
 			outputStream.flush();
 			log.debug("Flush skip list to sst, file: {}, count: {}. Skip list minimum key: {}, maximum key: {}.",
 					fileName, count, StringUtil.fromBytes(minKey), StringUtil.fromBytes(maxKey));
+			Context.getInstance().getMetaInfo().addTable(sst);
 		}
 		catch (IOException e) {
 			throw new RuntimeException(e);

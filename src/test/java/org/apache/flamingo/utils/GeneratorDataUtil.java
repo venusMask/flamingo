@@ -6,6 +6,7 @@ import org.apache.flamingo.options.Options;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Random;
 
 /**
  * @Author venus
@@ -17,7 +18,17 @@ public class GeneratorDataUtil {
 	private static final RandomStringUtils
 			randomStringUtils = RandomStringUtils.secure();
 
+	private static final Random random = new Random();
+
 	private static final int maxLevel = Integer.parseInt(Options.MaxLevel.getValue());
+
+	public static boolean generateBoolean() {
+		return random.nextBoolean();
+	}
+
+	public static long generateLong() {
+		return random.nextLong();
+	}
 
 	public static int generateRandomLevel() {
 		return RandomUtils.secure().randomInt(0, maxLevel);
@@ -25,6 +36,10 @@ public class GeneratorDataUtil {
 
 	public static String generateRandomString() {
 		return randomStringUtils.nextAlphabetic(1, 20);
+	}
+
+	public static String generateRandomString(int min, int max) {
+		return randomStringUtils.nextAlphabetic(min, max);
 	}
 
 	public static ArrayList<String> generateRandomStrings(int count, int minLength, int maxLength) {

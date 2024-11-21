@@ -3,7 +3,7 @@ package org.apache.flamingo.file;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.flamingo.core.IDAssign;
 import org.apache.flamingo.options.Options;
-import org.apache.flamingo.sstable.SSTableInfo;
+import org.apache.flamingo.meta.SSTMetaInfo;
 import org.apache.flamingo.wal.WALWriter;
 
 import java.io.File;
@@ -19,7 +19,7 @@ import java.util.regex.Pattern;
 public class FileUtil {
 
 	public static String getSSTFileName() {
-		return Options.DataDir.getValue() + File.separator + SSTableInfo.SSTABLE + IDAssign.getSSTNextID() + ".sst";
+		return Options.DataDir.getValue() + File.separator + SSTMetaInfo.SSTABLE + IDAssign.getSSTNextID() + ".sst";
 	}
 
 	public static String getWalActiveName() {
@@ -117,6 +117,15 @@ public class FileUtil {
 		}
 	}
 
+	public static void deleteIfEmpty(String filePath) {
+		if(filePath != null) {
+			File file = new File(filePath);
+			if(file.length() == 0) {
+				deleteFile(filePath);
+			}
+		}
+	}
+
 	public static void deleteDirectory(Path dir) throws IOException {
 		if (Files.exists(dir)) {
 			try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
@@ -130,6 +139,11 @@ public class FileUtil {
 			}
 			Files.delete(dir); // 删除当前目录
 		}
+	}
+
+	public static void createDirIfNotExists(String dir) throws IOException {
+		Path path = Paths.get(dir);
+		Files.createDirectories(path);
 	}
 
 }

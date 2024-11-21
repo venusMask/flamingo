@@ -23,13 +23,13 @@ public class Options {
 
 	public static Option MemoryTableThresholdSize = Option.builder()
 		.key("memory_table_threshold_size")
-		.value(String.valueOf(10))
+		.value(String.valueOf(3000))
 		.doc("The memory table threshold size.")
 		.build();
 
 	public static Option SSTableMaxSize = Option.builder()
 		.key("sstable_max_size")
-		.value(String.valueOf(20))
+		.value(String.valueOf(3000))
 		.doc("The maximum number of kv pairs contained in each sstable.")
 		.build();
 
@@ -37,6 +37,12 @@ public class Options {
 			.key("max_level")
 			.value(String.valueOf(10))
 			.doc("Max Level")
+			.build();
+
+	public static Option MaxValueSize = Option.builder()
+			.key("max_value_size")
+			.value(String.valueOf(30))
+			.doc("Max Value Size")
 			.build();
 
 	public static void setDataDir(String dataDir) {
